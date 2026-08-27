@@ -1,0 +1,11 @@
+package com.infosys.subsidy.repository;
+
+import com.infosys.subsidy.entity.Beneficiary;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface BeneficiaryRepository extends JpaRepository<Beneficiary, Long> {
+
+    boolean existsByAadhaarNumber(String aadhaarNumber);
+
+    boolean existsByMobileNumber(String mobileNumber);
+}
