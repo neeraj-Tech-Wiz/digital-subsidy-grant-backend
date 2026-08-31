@@ -2,6 +2,8 @@ package com.infosys.subsidy.service;
 
 import com.infosys.subsidy.dto.BeneficiaryRequest;
 import com.infosys.subsidy.entity.Beneficiary;
+import com.infosys.subsidy.exception.DuplicateAadhaarException;
+import com.infosys.subsidy.exception.DuplicateMobileException;
 import com.infosys.subsidy.repository.BeneficiaryRepository;
 import org.springframework.stereotype.Service;
 
@@ -17,11 +19,15 @@ public class BeneficiaryService {
     public Beneficiary registerBeneficiary(BeneficiaryRequest request) {
 
         if (beneficiaryRepository.existsByAadhaarNumber(request.getAadhaarNumber())) {
-            throw new RuntimeException("Aadhaar number is already registered");
+            throw new DuplicateAadhaarException(
+                    "Aadhaar number is already registered"
+            );
         }
 
         if (beneficiaryRepository.existsByMobileNumber(request.getMobileNumber())) {
-            throw new RuntimeException("Mobile number is already registered");
+            throw new DuplicateMobileException(
+                    "Mobile number is already registered"
+            );
         }
 
         Beneficiary beneficiary = new Beneficiary();

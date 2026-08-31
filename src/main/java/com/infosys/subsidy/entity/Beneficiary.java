@@ -19,7 +19,12 @@ public class Beneficiary {
     @Column(name = "aadhaar_number", nullable = false, unique = true, length = 12)
     private String aadhaarNumber;
 
-    @Column(name = "mobile_number", nullable = false, length = 10)
+    @Column(
+            name = "mobile_number",
+            nullable = false,
+            unique = true,
+            length = 10
+    )
     private String mobileNumber;
 
     @Column(nullable = false)

@@ -43,4 +43,31 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.BAD_REQUEST)
                 .body(error);
     }
+    @ExceptionHandler(DuplicateAadhaarException.class)
+    public ResponseEntity<Map<String, String>> handleDuplicateAadhaar(
+            DuplicateAadhaarException exception) {
+
+        Map<String, String> error = new HashMap<>();
+
+        error.put("error", "Duplicate Aadhaar");
+        error.put("message", exception.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(error);
+    }
+
+    @ExceptionHandler(DuplicateMobileException.class)
+    public ResponseEntity<Map<String, String>> handleDuplicateMobile(
+            DuplicateMobileException exception) {
+
+        Map<String, String> error = new HashMap<>();
+
+        error.put("error", "Duplicate Mobile Number");
+        error.put("message", exception.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(error);
+    }
 }
