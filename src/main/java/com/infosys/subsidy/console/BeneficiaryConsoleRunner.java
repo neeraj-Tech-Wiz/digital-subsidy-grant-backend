@@ -2,12 +2,15 @@ package com.infosys.subsidy.console;
 
 import com.infosys.subsidy.entity.Beneficiary;
 import com.infosys.subsidy.repository.BeneficiaryRepository;
+import org.springframework.context.annotation.Profile;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
+import java.util.NoSuchElementException;
 import java.util.Scanner;
 
 @Component
+@Profile("!test")
 public class BeneficiaryConsoleRunner implements CommandLineRunner {
 
     private final BeneficiaryRepository beneficiaryRepository;
@@ -18,6 +21,10 @@ public class BeneficiaryConsoleRunner implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+
+        if (System.console() == null && System.getProperty("interactive") == null) {
+            return;
+        }
 
         Scanner scanner = new Scanner(System.in);
 
