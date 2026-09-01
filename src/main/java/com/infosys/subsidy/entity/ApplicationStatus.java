@@ -1,0 +1,28 @@
+package com.infosys.subsidy.entity;
+
+public enum ApplicationStatus {
+
+    SUBMITTED,
+
+    SCORING_COMPLETED,
+
+    FIELD_VERIFICATION_PENDING,
+
+    FIELD_VERIFIED,
+
+    DISTRICT_REVIEW_PENDING,
+
+    DISTRICT_APPROVED,
+
+    FINANCE_APPROVAL_PENDING,
+
+    FINANCE_APPROVED,
+
+    REJECTED,
+
+    REVERIFICATION_REQUIRED,
+
+    DISBURSEMENT_IN_PROGRESS,
+
+    COMPLETED
+}
