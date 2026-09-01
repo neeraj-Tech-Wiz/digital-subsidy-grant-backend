@@ -5,8 +5,6 @@ import com.infosys.subsidy.entity.EligibilityCriteria;
 import com.infosys.subsidy.entity.Scheme;
 import com.infosys.subsidy.enums.BeneficiaryCategory;
 import com.infosys.subsidy.enums.SchemeStatus;
-import com.infosys.subsidy.model.EligibilityEvaluationResult;
-import com.infosys.subsidy.service.EligibilityEvaluationService;
 import com.infosys.subsidy.service.SchemeService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -20,11 +18,9 @@ import java.util.List;
 public class SchemeController {
 
     private final SchemeService schemeService;
-    private final EligibilityEvaluationService evaluationService;
 
-    public SchemeController(SchemeService schemeService, EligibilityEvaluationService evaluationService) {
+    public SchemeController(SchemeService schemeService) {
         this.schemeService = schemeService;
-        this.evaluationService = evaluationService;
     }
 
     // ==================== SCHEME ENDPOINTS ====================
@@ -161,17 +157,5 @@ public class SchemeController {
 
         Scheme updated = schemeService.recordDisbursement(id, amount);
         return ResponseEntity.ok(SchemeResponse.fromEntity(updated));
-    }
-
-    // ==================== ELIGIBILITY EVALUATION SIMULATION ====================
-
-    @PostMapping("/{id}/evaluate")
-    public ResponseEntity<EligibilityEvaluationResult> evaluateEligibility(
-            @PathVariable Long id,
-            @Valid @RequestBody EligibilityEvaluationRequest request) {
-
-        Scheme scheme = schemeService.getSchemeById(id);
-        EligibilityEvaluationResult report = evaluationService.evaluate(scheme, request);
-        return ResponseEntity.ok(report);
     }
 }

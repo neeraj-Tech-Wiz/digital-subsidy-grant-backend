@@ -6,11 +6,7 @@ import com.infosys.subsidy.enums.BeneficiaryCategory;
 import com.infosys.subsidy.enums.CriterionType;
 import com.infosys.subsidy.enums.Operator;
 import com.infosys.subsidy.enums.SchemeStatus;
-import com.infosys.subsidy.model.BeneficiaryProfile;
-import com.infosys.subsidy.model.CriterionEvaluationResult;
-import com.infosys.subsidy.model.EligibilityEvaluationResult;
 import com.infosys.subsidy.runner.SampleDataInitializer;
-import com.infosys.subsidy.service.EligibilityEvaluationService;
 import com.infosys.subsidy.service.SchemeService;
 import com.infosys.subsidy.util.ConsoleTable;
 import org.springframework.stereotype.Component;
@@ -26,16 +22,14 @@ import java.util.Scanner;
 public class SchemeMasterConsoleRunner {
 
     private final SchemeService schemeService;
-    private final EligibilityEvaluationService evaluationService;
     private final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     private String formatCurrency(double amount) {
         return String.format("Rs. %,.2f", amount);
     }
 
-    public SchemeMasterConsoleRunner(SchemeService schemeService, EligibilityEvaluationService evaluationService) {
+    public SchemeMasterConsoleRunner(SchemeService schemeService) {
         this.schemeService = schemeService;
-        this.evaluationService = evaluationService;
     }
 
     public void runInteractive(Scanner scanner) {
@@ -44,7 +38,7 @@ public class SchemeMasterConsoleRunner {
 
         while (running) {
             printMainMenu();
-            System.out.print("Enter your choice (0-10): ");
+            System.out.print("Enter your choice (0-9): ");
             String choice = scanner.nextLine();
 
             try {
@@ -57,13 +51,12 @@ public class SchemeMasterConsoleRunner {
                     case "6" -> handleChangeSchemeStatus(scanner);
                     case "7" -> handleSearchAndFilter(scanner);
                     case "8" -> handleDeleteScheme(scanner);
-                    case "9" -> handleSimulateEligibility(scanner);
-                    case "10" -> handleReloadSampleData(scanner);
+                    case "9" -> handleReloadSampleData(scanner);
                     case "0" -> {
                         System.out.println("\n[INFO] Exiting Scheme Master Terminal Application.");
                         running = false;
                     }
-                    default -> System.out.println("\n[ERROR] Invalid option selected. Please choose between 0 and 10.");
+                    default -> System.out.println("\n[ERROR] Invalid option selected. Please choose between 0 and 9.");
                 }
             } catch (Exception e) {
                 System.out.println("\n[ERROR] Operation failed: " + e.getMessage());
@@ -93,8 +86,7 @@ public class SchemeMasterConsoleRunner {
         System.out.println("  6.  Change Scheme Status (Draft / Active / Inactive / Closed)");
         System.out.println("  7.  Search & Filter Schemes");
         System.out.println("  8.  Delete Scheme");
-        System.out.println("  9.  Simulate Beneficiary Eligibility Scoring & Routing");
-        System.out.println("  10. Reset & Reload Default Government Schemes");
+        System.out.println("  9.  Reset & Reload Default Government Schemes");
         System.out.println("  0.  Exit to Main Application");
         System.out.println("==============================================================================");
     }
@@ -242,39 +234,6 @@ public class SchemeMasterConsoleRunner {
         System.out.println("\n[SUCCESS] Scheme deleted.");
     }
 
-    private void handleSimulateEligibility(Scanner scanner) {
-        List<Scheme> activeSchemes = schemeService.getActiveSchemes();
-        if (activeSchemes.isEmpty()) {
-            System.out.println("\n[WARNING] No active schemes found.");
-            return;
-        }
-
-        for (Scheme s : activeSchemes) {
-            System.out.println("  ID " + s.getId() + ": " + s.getSchemeName() + " (" + s.getSchemeCode() + ")");
-        }
-
-        System.out.print("\nSelect Target Scheme ID: ");
-        Long schemeId = Long.parseLong(scanner.nextLine().trim());
-        Scheme selectedScheme = schemeService.getSchemeById(schemeId);
-
-        System.out.print("Beneficiary Name [Ramesh Patil]: ");
-        String nameInput = scanner.nextLine().trim();
-        String name = nameInput.isEmpty() ? "Ramesh Patil" : nameInput;
-
-        System.out.print("Annual Income [180000]: ");
-        String incInput = scanner.nextLine().trim();
-        double income = incInput.isEmpty() ? 180000.0 : Double.parseDouble(incInput);
-
-        BeneficiaryCategory cat = promptBeneficiaryCategory(scanner);
-
-        BeneficiaryProfile profile = new BeneficiaryProfile(1L, name, 38, "123456789012", "9876543210", "ramesh@example.com", income, 3.5, cat, "All India");
-        profile.setAadhaarVerified(true);
-        profile.setDocumentsVerified(true);
-
-        EligibilityEvaluationResult report = evaluationService.evaluate(selectedScheme, profile);
-        displayEvaluationReport(report);
-    }
-
     private void handleReloadSampleData(Scanner scanner) {
         SampleDataInitializer.loadSampleData(schemeService);
         System.out.println("\n[SUCCESS] Default schemes loaded successfully!");
@@ -335,36 +294,6 @@ public class SchemeMasterConsoleRunner {
             );
         }
         table.print();
-    }
-
-    private void displayEvaluationReport(EligibilityEvaluationResult report) {
-        System.out.println("\n==========================================================================================");
-        System.out.println("                     ELIGIBILITY EVALUATION & SCORING REPORT                              ");
-        System.out.println("==========================================================================================");
-        System.out.println("  Applicant Name       : " + report.getBeneficiaryName());
-        System.out.println("  Target Scheme        : " + report.getSchemeName() + " [" + report.getSchemeCode() + "]");
-        System.out.println("  Grant Amount         : " + formatCurrency(report.getRequestedGrantAmount()));
-        System.out.println("------------------------------------------------------------------------------------------");
-
-        ConsoleTable table = new ConsoleTable("Criterion", "Rule", "Applicant Value", "Result", "Score", "Reason");
-        for (CriterionEvaluationResult res : report.getCriteriaResults()) {
-            String ruleStr = res.getCriterion().getOperator().getSymbol() + " " + res.getCriterion().getExpectedValue();
-            table.addRow(
-                    res.getCriterion().getCriterionName(),
-                    ruleStr,
-                    res.getApplicantValue(),
-                    res.isSatisfied() ? "[PASS]" : "[FAIL]",
-                    res.getPointsAwarded() + " / " + res.getMaxPoints(),
-                    res.getStatusMessage()
-            );
-        }
-        table.print();
-
-        System.out.println("------------------------------------------------------------------------------------------");
-        System.out.println("  Total Score Calculated : " + report.getTotalScore() + " / " + report.getMaxPossibleScore() + " Points");
-        System.out.println("  Routing Category       : " + report.getScoreCategory().getTitle());
-        System.out.println("  Workflow Description   : " + report.getScoreCategory().getDescription());
-        System.out.println("==========================================================================================");
     }
 
     private BeneficiaryCategory promptBeneficiaryCategory(Scanner scanner) {

@@ -6,7 +6,6 @@ import com.infosys.subsidy.dto.SchemeRequest;
 import com.infosys.subsidy.entity.Scheme;
 import com.infosys.subsidy.enums.BeneficiaryCategory;
 import com.infosys.subsidy.enums.SchemeStatus;
-import com.infosys.subsidy.service.EligibilityEvaluationService;
 import com.infosys.subsidy.service.SchemeService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,12 +35,9 @@ class SchemeControllerTest {
     @Mock
     private SchemeService schemeService;
 
-    @Mock
-    private EligibilityEvaluationService evaluationService;
-
     @BeforeEach
     void setUp() {
-        SchemeController controller = new SchemeController(schemeService, evaluationService);
+        SchemeController controller = new SchemeController(schemeService);
         mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
     }
 
