@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -29,6 +30,7 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.BAD_REQUEST)
                 .body(errors);
     }
+
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<Map<String, String>> handleInvalidJson(
             HttpMessageNotReadableException exception) {
@@ -43,6 +45,7 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.BAD_REQUEST)
                 .body(error);
     }
+
     @ExceptionHandler(DuplicateAadhaarException.class)
     public ResponseEntity<Map<String, String>> handleDuplicateAadhaar(
             DuplicateAadhaarException exception) {
@@ -68,6 +71,62 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
+                .body(error);
+    }
+
+    @ExceptionHandler(SchemeNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleSchemeNotFound(
+            SchemeNotFoundException exception) {
+
+        Map<String, Object> error = new HashMap<>();
+        error.put("error", "Scheme Not Found");
+        error.put("message", exception.getMessage());
+        error.put("timestamp", LocalDateTime.now().toString());
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(error);
+    }
+
+    @ExceptionHandler(DuplicateSchemeException.class)
+    public ResponseEntity<Map<String, Object>> handleDuplicateScheme(
+            DuplicateSchemeException exception) {
+
+        Map<String, Object> error = new HashMap<>();
+        error.put("error", "Duplicate Scheme");
+        error.put("message", exception.getMessage());
+        error.put("timestamp", LocalDateTime.now().toString());
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(error);
+    }
+
+    @ExceptionHandler(InvalidCriteriaException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidCriteria(
+            InvalidCriteriaException exception) {
+
+        Map<String, Object> error = new HashMap<>();
+        error.put("error", "Invalid Criteria Configuration");
+        error.put("message", exception.getMessage());
+        error.put("timestamp", LocalDateTime.now().toString());
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(error);
+    }
+
+    @ExceptionHandler(ValidationException.class)
+    public ResponseEntity<Map<String, Object>> handleCustomValidation(
+            ValidationException exception) {
+
+        Map<String, Object> error = new HashMap<>();
+        error.put("error", "Validation Error");
+        error.put("message", exception.getMessage());
+        error.put("timestamp", LocalDateTime.now().toString());
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
                 .body(error);
     }
 }
