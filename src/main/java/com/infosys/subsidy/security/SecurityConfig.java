@@ -22,8 +22,8 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     public SecurityConfig(
-            JwtAuthenticationFilter jwtAuthenticationFilter) {
-
+            JwtAuthenticationFilter jwtAuthenticationFilter
+    ) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
@@ -32,12 +32,14 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+    // =========================
+    // CORS CONFIGURATION
+    // =========================
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
 
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // React frontend URL
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:5173"
         ));
@@ -46,6 +48,7 @@ public class SecurityConfig {
                 "GET",
                 "POST",
                 "PUT",
+                "PATCH",
                 "DELETE",
                 "OPTIONS"
         ));
@@ -69,25 +72,31 @@ public class SecurityConfig {
         return source;
     }
 
+    // =========================
+    // SECURITY CONFIGURATION
+    // =========================
     @Bean
     public SecurityFilterChain securityFilterChain(
-            HttpSecurity http) throws Exception {
+            HttpSecurity http
+    ) throws Exception {
 
         http
                 // Enable CORS
                 .cors(Customizer.withDefaults())
 
-                // Disable CSRF for JWT REST API
+                // Disable CSRF for REST API
                 .csrf(csrf -> csrf.disable())
 
-                // Stateless JWT authentication
+                // JWT = Stateless authentication
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
                                 SessionCreationPolicy.STATELESS
                         )
                 )
 
-                // Authorization rules
+                // =========================
+                // AUTHORIZATION RULES
+                // =========================
                 .authorizeHttpRequests(auth -> auth
 
                         // Allow CORS preflight requests
@@ -96,17 +105,89 @@ public class SecurityConfig {
                                 "/**"
                         ).permitAll()
 
-                        // Public authentication APIs
+                        .requestMatchers("/api/applications/**").permitAll()
+
+
+                        // =========================
+                        // PUBLIC AUTH APIs
+                        // =========================
                         .requestMatchers(
                                 "/api/auth/register",
                                 "/api/auth/login"
                         ).permitAll()
 
-                        // All other APIs require JWT
+                        // =========================
+                        // BENEFICIARY + ADMIN
+                        // Can view active schemes
+                        // =========================
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/schemes/active"
+                        )
+                        .hasAnyRole(
+                                "BENEFICIARY",
+                                "ADMIN"
+                        )
+
+                        .requestMatchers("/api/schemes/**").permitAll()
+
+                        // =========================
+                        // ADMIN ONLY
+                        // Create Scheme
+                        // =========================
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/schemes",
+                                "/api/schemes/**"
+                        )
+                        .hasRole("ADMIN")
+
+                        // =========================
+                        // ADMIN ONLY
+                        // Update Scheme / Criteria
+                        // =========================
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/schemes/**"
+                        )
+                        .hasRole("ADMIN")
+
+                        // =========================
+                        // ADMIN ONLY
+                        // Change status / toggle criteria
+                        // =========================
+                        .requestMatchers(
+                                HttpMethod.PATCH,
+                                "/api/schemes/**"
+                        )
+                        .hasRole("ADMIN")
+
+                        // =========================
+                        // ADMIN ONLY
+                        // Delete Scheme / Criteria
+                        // =========================
+                        .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/schemes/**"
+                        )
+                        .hasRole("ADMIN")
+
+                        // =========================
+                        // ADMIN ONLY
+                        // View all schemes and criteria
+                        // =========================
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/schemes/**"
+                        )
+                        .hasRole("ADMIN")
+
+
+                        // All other APIs require login
                         .anyRequest().authenticated()
                 )
 
-                // JWT filter
+                // Add JWT filter
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class

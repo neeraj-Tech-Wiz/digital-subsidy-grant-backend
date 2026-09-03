@@ -217,7 +217,18 @@ public class SchemeServiceImpl implements SchemeService {
         }
 
         EligibilityCriteria criterion = new EligibilityCriteria();
-        criterion.setCriterionName(req.getCriterionName() != null ? req.getCriterionName().trim() : null);
+        criterion.setCriterionName(
+                req.getCriterionName() != null
+                        ? req.getCriterionName().trim()
+                        : null
+        );
+
+        criterion.setFieldName(
+                req.getFieldName() != null
+                        ? req.getFieldName().trim()
+                        : null
+        );
+
         criterion.setCriterionType(req.getCriterionType());
         criterion.setOperator(req.getOperator());
         criterion.setExpectedValue(req.getExpectedValue() != null ? req.getExpectedValue().trim() : null);
@@ -240,9 +251,19 @@ public class SchemeServiceImpl implements SchemeService {
 
         // Check for duplicate criterion name in the same scheme
         boolean exists = scheme.getCriteriaList().stream()
-                .anyMatch(c -> c.getCriterionName().equalsIgnoreCase(criterion.getCriterionName()));
+                .anyMatch(c ->
+                        c.getFieldName() != null &&
+                                c.getFieldName().equalsIgnoreCase(
+                                        criterion.getFieldName()
+                                )
+                );
+
         if (exists) {
-            throw new InvalidCriteriaException("A criterion with name '" + criterion.getCriterionName() + "' already exists in this scheme.");
+            throw new InvalidCriteriaException(
+                    "A criterion with field name '" +
+                            criterion.getFieldName() +
+                            "' already exists in this scheme."
+            );
         }
 
         criterion.setScheme(scheme);
@@ -267,6 +288,41 @@ public class SchemeServiceImpl implements SchemeService {
 
         if (req.getCriterionName() != null && !req.getCriterionName().trim().isEmpty()) {
             existing.setCriterionName(req.getCriterionName().trim());
+
+            if (req.getFieldName() != null &&
+                    !req.getFieldName().trim().isEmpty()) {
+
+                String newFieldName =
+                        req.getFieldName().trim();
+
+                boolean duplicateExists =
+                        scheme.getCriteriaList().stream()
+                                .anyMatch(c ->
+                                        !Objects.equals(
+                                                c.getId(),
+                                                criterionId
+                                        )
+                                                && c.getFieldName() != null
+                                                && c.getFieldName()
+                                                .equalsIgnoreCase(
+                                                        newFieldName
+                                                )
+                                );
+
+                if (duplicateExists) {
+
+                    throw new InvalidCriteriaException(
+                            "Another criterion with field name '" +
+                                    newFieldName +
+                                    "' already exists in this scheme."
+                    );
+                }
+
+                existing.setFieldName(newFieldName);
+            }
+        }
+        if (req.getFieldName() != null && !req.getFieldName().trim().isEmpty()) {
+            existing.setFieldName(req.getFieldName().trim());
         }
         if (req.getCriterionType() != null) {
             existing.setCriterionType(req.getCriterionType());
@@ -393,6 +449,15 @@ public class SchemeServiceImpl implements SchemeService {
         if (criterion.getCriterionName() == null || criterion.getCriterionName().trim().isEmpty()) {
             throw new InvalidCriteriaException("Criterion name cannot be empty");
         }
+
+        if (criterion.getFieldName() == null ||
+                criterion.getFieldName().trim().isEmpty()) {
+
+            throw new InvalidCriteriaException(
+                    "Field name cannot be empty"
+            );
+        }
+
         if (criterion.getCriterionType() == null) {
             throw new InvalidCriteriaException("Criterion type must be specified (NUMERIC, BOOLEAN, TEXT, ENUM)");
         }

@@ -12,6 +12,9 @@ public class EligibilityCriteriaRequest {
     @NotBlank(message = "Criterion name is required")
     private String criterionName;
 
+    @NotBlank(message = "Field name is required")
+    private String fieldName;
+
     @NotNull(message = "Criterion type is required")
     private CriterionType criterionType;
 
@@ -34,10 +37,19 @@ public class EligibilityCriteriaRequest {
     public EligibilityCriteriaRequest() {
     }
 
-    public EligibilityCriteriaRequest(String criterionName, CriterionType criterionType,
-                                      Operator operator, String expectedValue, int weight,
-                                      boolean mandatory, boolean active, String description) {
+    public EligibilityCriteriaRequest(
+            String criterionName,
+            String fieldName,
+            CriterionType criterionType,
+            Operator operator,
+            String expectedValue,
+            int weight,
+            boolean mandatory,
+            boolean active,
+            String description) {
+
         this.criterionName = criterionName;
+        this.fieldName = fieldName;
         this.criterionType = criterionType;
         this.operator = operator;
         this.expectedValue = expectedValue;
@@ -47,13 +59,20 @@ public class EligibilityCriteriaRequest {
         this.description = description;
     }
 
-    // Getters and Setters
     public String getCriterionName() {
         return criterionName;
     }
 
     public void setCriterionName(String criterionName) {
         this.criterionName = criterionName;
+    }
+
+    public String getFieldName() {
+        return fieldName;
+    }
+
+    public void setFieldName(String fieldName) {
+        this.fieldName = fieldName;
     }
 
     public CriterionType getCriterionType() {

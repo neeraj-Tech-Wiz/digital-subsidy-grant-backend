@@ -28,8 +28,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,
-            FilterChain filterChain)
-            throws ServletException, IOException {
+            FilterChain filterChain
+    ) throws ServletException, IOException {
 
         // Allow CORS preflight requests
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
@@ -40,7 +40,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String authorizationHeader =
                 request.getHeader("Authorization");
 
-        // No Authorization header
+        // If JWT token is not present, continue without authentication
         if (authorizationHeader == null ||
                 !authorizationHeader.startsWith("Bearer ")) {
 
@@ -48,21 +48,31 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        String token =
-                authorizationHeader.substring(7);
+        String token = authorizationHeader.substring(7);
 
         try {
 
+            // Validate JWT token
             if (jwtService.isTokenValid(token)) {
 
-                String email =
-                        jwtService.extractEmail(token);
+                // Extract user information from JWT
+                String email = jwtService.extractEmail(token);
+                String role = jwtService.extractRole(token);
 
+                // Create Spring Security authority
+                List<SimpleGrantedAuthority> authorities =
+                        List.of(
+                                new SimpleGrantedAuthority(
+                                        "ROLE_" + role
+                                )
+                        );
+
+                // Create authenticated user
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
                                 email,
                                 null,
-                                List.of()
+                                authorities
                         );
 
                 authentication.setDetails(
@@ -70,6 +80,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                 .buildDetails(request)
                 );
 
+                // Store authentication in Security Context
                 SecurityContextHolder
                         .getContext()
                         .setAuthentication(authentication);
@@ -77,10 +88,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         } catch (Exception e) {
 
-            // Invalid or expired JWT.
-            // Leave the request unauthenticated.
-            SecurityContextHolder
-                    .clearContext();
+            // Invalid or expired JWT
+            SecurityContextHolder.clearContext();
         }
 
         filterChain.doFilter(request, response);
