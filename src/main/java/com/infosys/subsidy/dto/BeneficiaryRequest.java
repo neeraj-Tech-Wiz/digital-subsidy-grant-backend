@@ -1,41 +1,43 @@
 package com.infosys.subsidy.dto;
 
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 
 public class BeneficiaryRequest {
 
     @NotBlank(message = "Name is required")
-    @Pattern(
-            regexp = "^[A-Za-z ]+$",
-            message = "Name must contain only letters and spaces"
-    )
     private String name;
 
-    @NotNull(message = "Age is required")
-    @Min(value = 0, message = "Age cannot be negative")
-    @Max(value = 150, message = "Age cannot be greater than 150")
+    @NotBlank(message = "Father name is required")
+    private String fatherName;
+
+    @NotBlank(message = "Gender is required")
+    private String gender;
+
+    @Min(value = 18, message = "Age must be at least 18")
     private Integer age;
 
-    @NotBlank(message = "Aadhaar number is required")
-    @Pattern(
-            regexp = "^[0-9]{12}$",
-            message = "Aadhaar number must contain exactly 12 digits"
-    )
-    private String aadhaarNumber;
+    @Email(message = "Invalid email format")
+    @NotBlank(message = "Email is required")
+    private String email;
 
-    @NotBlank(message = "Mobile number is required")
     @Pattern(
-            regexp = "^[0-9]{10}$",
+            regexp = "\\d{10}",
             message = "Mobile number must contain exactly 10 digits"
     )
     private String mobileNumber;
 
-    @NotBlank(message = "Email is required")
-    @Email(message = "Please provide a valid email address")
-    private String email;
+    @Pattern(
+            regexp = "\\d{12}",
+            message = "Aadhaar number must contain exactly 12 digits"
+    )
+    private String aadhaarNumber;
 
-    @NotBlank(message = "Government scheme is required")
-    private String governmentScheme;
+    @NotBlank(message = "Address is required")
+    private String address;
+
 
     public String getName() {
         return name;
@@ -45,6 +47,25 @@ public class BeneficiaryRequest {
         this.name = name;
     }
 
+
+    public String getFatherName() {
+        return fatherName;
+    }
+
+    public void setFatherName(String fatherName) {
+        this.fatherName = fatherName;
+    }
+
+
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+
+
     public Integer getAge() {
         return age;
     }
@@ -53,21 +74,6 @@ public class BeneficiaryRequest {
         this.age = age;
     }
 
-    public String getAadhaarNumber() {
-        return aadhaarNumber;
-    }
-
-    public void setAadhaarNumber(String aadhaarNumber) {
-        this.aadhaarNumber = aadhaarNumber;
-    }
-
-    public String getMobileNumber() {
-        return mobileNumber;
-    }
-
-    public void setMobileNumber(String mobileNumber) {
-        this.mobileNumber = mobileNumber;
-    }
 
     public String getEmail() {
         return email;
@@ -77,11 +83,30 @@ public class BeneficiaryRequest {
         this.email = email;
     }
 
-    public String getGovernmentScheme() {
-        return governmentScheme;
+
+    public String getMobileNumber() {
+        return mobileNumber;
     }
 
-    public void setGovernmentScheme(String governmentScheme) {
-        this.governmentScheme = governmentScheme;
+    public void setMobileNumber(String mobileNumber) {
+        this.mobileNumber = mobileNumber;
+    }
+
+
+    public String getAadhaarNumber() {
+        return aadhaarNumber;
+    }
+
+    public void setAadhaarNumber(String aadhaarNumber) {
+        this.aadhaarNumber = aadhaarNumber;
+    }
+
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
     }
 }

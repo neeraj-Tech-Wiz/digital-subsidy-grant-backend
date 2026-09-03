@@ -36,6 +36,9 @@ public class EligibilityCriteria implements Serializable {
     @Column(name = "criterion_name", nullable = false)
     private String criterionName;
 
+    @Column(name = "field_name")
+    private String fieldName;
+
     @NotNull(message = "Criterion type is required")
     @Enumerated(EnumType.STRING)
     @Column(name = "criterion_type", nullable = false, length = 30)
@@ -108,6 +111,14 @@ public class EligibilityCriteria implements Serializable {
 
     public void setCriterionName(String criterionName) {
         this.criterionName = criterionName;
+    }
+
+    public String getFieldName() {
+        return fieldName;
+    }
+
+    public void setFieldName(String fieldName) {
+        this.fieldName = fieldName;
     }
 
     public CriterionType getCriterionType() {
