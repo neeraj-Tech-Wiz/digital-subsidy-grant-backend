@@ -1,0 +1,15 @@
+package com.infosys.subsidy.enums;
+
+public enum DocumentType {
+    AADHAAR_CARD,
+    INCOME_CERTIFICATE,
+    MARKSHEET,
+    BONAFIDE_CERTIFICATE,
+    CASTE_CERTIFICATE,
+    LAND_CERTIFICATE,
+    PROPERTY_DOCUMENT,
+    LAND_RECORD_7_12,
+    BANK_PASSBOOK,
+    RESIDENCE_CERTIFICATE,
+    OTHER
+}

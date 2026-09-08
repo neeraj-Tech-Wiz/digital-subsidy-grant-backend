@@ -70,6 +70,10 @@ public class AuthService {
                 .orElseThrow(() ->
                         new RuntimeException("Invalid email or password"));
 
+        if (!user.isActive()) {
+            throw new RuntimeException("Account is deactivated");
+        }
+
         if (!passwordEncoder.matches(
                 request.getPassword(),
                 user.getPassword())) {

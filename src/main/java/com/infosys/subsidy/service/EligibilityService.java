@@ -63,10 +63,7 @@ public class EligibilityService {
         if (actualValue == null
                 || actualValue.trim().isEmpty()) {
 
-            System.out.println(
-                    "No value provided for field: "
-                            + fieldName
-            );
+
 
             return false;
         }
@@ -103,10 +100,7 @@ public class EligibilityService {
 
             } catch (NumberFormatException e) {
 
-                System.out.println(
-                        "Invalid numeric value for field: "
-                                + fieldName
-                );
+
 
                 return false;
             }
@@ -127,10 +121,7 @@ public class EligibilityService {
             if (!actualText.equalsIgnoreCase("true")
                     && !actualText.equalsIgnoreCase("false")) {
 
-                System.out.println(
-                        "Invalid boolean value for field: "
-                                + fieldName
-                );
+
 
                 return false;
             }
@@ -139,10 +130,7 @@ public class EligibilityService {
             if (!expectedText.equalsIgnoreCase("true")
                     && !expectedText.equalsIgnoreCase("false")) {
 
-                System.out.println(
-                        "Invalid expected boolean value for field: "
-                                + fieldName
-                );
+
 
                 return false;
             }

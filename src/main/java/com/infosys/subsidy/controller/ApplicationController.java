@@ -34,6 +34,7 @@ public class ApplicationController {
 
             @RequestBody ApplicationRequest request) {
 
+
         Application application =
                 applicationService.applyForScheme(
                         beneficiaryId,
@@ -41,6 +42,12 @@ public class ApplicationController {
                         request
                 );
 
+        return ResponseEntity.ok(application);
+    }
+
+    @PostMapping("/submit-documents/{applicationId}")
+    public ResponseEntity<Application> submitApplicationDocuments(@PathVariable Long applicationId) {
+        Application application = applicationService.submitApplicationDocuments(applicationId);
         return ResponseEntity.ok(application);
     }
 }

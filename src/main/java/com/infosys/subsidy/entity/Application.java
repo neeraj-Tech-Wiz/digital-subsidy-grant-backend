@@ -1,5 +1,8 @@
 package com.infosys.subsidy.entity;
 
+import com.infosys.subsidy.enums.ApplicationStatus;
+import com.infosys.subsidy.enums.VerificationLevel;
+import com.infosys.subsidy.enums.VerificationRoute;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
@@ -24,18 +27,65 @@ public class Application {
     @Column(name = "eligibility_score")
     private Integer eligibilityScore;
 
+    // ==========================================
+    // APPLICATION STATUS
+    // ==========================================
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "status")
-    private String status;
+    private ApplicationStatus status;
+
+
+    // ==========================================
+    // CURRENT VERIFICATION LEVEL
+    // ==========================================
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "current_verification_level")
+    private VerificationLevel currentVerificationLevel;
+
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "verification_route")
+    private VerificationRoute verificationRoute;
+
+
+    // ==========================================
+    // VERIFICATION REMARKS
+    // ==========================================
+
+    @Column(name = "remarks", length = 2000)
+    private String remarks;
+
+
+    // ==========================================
+    // VERIFICATION TIMESTAMPS
+    // ==========================================
+
+    @Column(name = "verification_assigned_at")
+    private LocalDateTime verificationAssignedAt;
+
+    @Column(name = "verification_due_date")
+    private LocalDateTime verificationDueDate;
+
+    @Column(name = "verification_completed_at")
+    private LocalDateTime verificationCompletedAt;
+
+
+    // ==========================================
+    // CONSTRUCTOR
+    // ==========================================
 
     public Application() {
     }
+
 
     public Application(
             LocalDateTime applicationDate,
             Long beneficiaryId,
             Long schemeId,
             Integer eligibilityScore,
-            String status) {
+            ApplicationStatus status) {
 
         this.applicationDate = applicationDate;
         this.beneficiaryId = beneficiaryId;
@@ -43,6 +93,11 @@ public class Application {
         this.eligibilityScore = eligibilityScore;
         this.status = status;
     }
+
+
+    // ==========================================
+    // GETTERS AND SETTERS
+    // ==========================================
 
     public Long getId() {
         return id;
@@ -52,6 +107,7 @@ public class Application {
         this.id = id;
     }
 
+
     public LocalDateTime getApplicationDate() {
         return applicationDate;
     }
@@ -59,6 +115,7 @@ public class Application {
     public void setApplicationDate(LocalDateTime applicationDate) {
         this.applicationDate = applicationDate;
     }
+
 
     public Long getBeneficiaryId() {
         return beneficiaryId;
@@ -68,6 +125,7 @@ public class Application {
         this.beneficiaryId = beneficiaryId;
     }
 
+
     public Long getSchemeId() {
         return schemeId;
     }
@@ -75,6 +133,7 @@ public class Application {
     public void setSchemeId(Long schemeId) {
         this.schemeId = schemeId;
     }
+
 
     public Integer getEligibilityScore() {
         return eligibilityScore;
@@ -84,11 +143,79 @@ public class Application {
         this.eligibilityScore = eligibilityScore;
     }
 
-    public String getStatus() {
+
+    public ApplicationStatus getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(ApplicationStatus status) {
         this.status = status;
+    }
+
+
+    public VerificationLevel getCurrentVerificationLevel() {
+        return currentVerificationLevel;
+    }
+
+    public void setCurrentVerificationLevel(
+            VerificationLevel currentVerificationLevel) {
+
+        this.currentVerificationLevel =
+                currentVerificationLevel;
+    }
+
+    public VerificationRoute getVerificationRoute() {
+        return verificationRoute;
+    }
+
+    public void setVerificationRoute(
+            VerificationRoute verificationRoute) {
+
+        this.verificationRoute = verificationRoute;
+    }
+
+
+    public String getRemarks() {
+        return remarks;
+    }
+
+    public void setRemarks(String remarks) {
+        this.remarks = remarks;
+    }
+
+
+    public LocalDateTime getVerificationAssignedAt() {
+        return verificationAssignedAt;
+    }
+
+    public void setVerificationAssignedAt(
+            LocalDateTime verificationAssignedAt) {
+
+        this.verificationAssignedAt =
+                verificationAssignedAt;
+    }
+
+
+    public LocalDateTime getVerificationDueDate() {
+        return verificationDueDate;
+    }
+
+    public void setVerificationDueDate(
+            LocalDateTime verificationDueDate) {
+
+        this.verificationDueDate =
+                verificationDueDate;
+    }
+
+
+    public LocalDateTime getVerificationCompletedAt() {
+        return verificationCompletedAt;
+    }
+
+    public void setVerificationCompletedAt(
+            LocalDateTime verificationCompletedAt) {
+
+        this.verificationCompletedAt =
+                verificationCompletedAt;
     }
 }

@@ -32,6 +32,9 @@ public class User {
     private UserRole role;
 
     @Column(nullable = false)
+    private boolean active = true;
+
+    @Column(nullable = false)
     private LocalDateTime createdAt;
 
     public User() {
@@ -92,5 +95,13 @@ public class User {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
     }
 }

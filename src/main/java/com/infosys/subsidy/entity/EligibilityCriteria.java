@@ -78,6 +78,7 @@ public class EligibilityCriteria implements Serializable {
                                int maxScore, boolean mandatory, boolean active, String description) {
         this.id = id;
         this.criterionName = criterionName;
+        this.fieldName = criterionName;
         this.criterionType = criterionType;
         this.operator = operator;
         this.expectedValue = expectedValue;

@@ -105,9 +105,6 @@ public class SecurityConfig {
                                 "/**"
                         ).permitAll()
 
-                        .requestMatchers("/api/applications/**").permitAll()
-
-
                         // =========================
                         // PUBLIC AUTH APIs
                         // =========================
@@ -115,6 +112,30 @@ public class SecurityConfig {
                                 "/api/auth/register",
                                 "/api/auth/login"
                         ).permitAll()
+
+                        // =========================
+                        // ADMIN OFFICER MANAGEMENT
+                        // =========================
+                        .requestMatchers("/api/admin/officers", "/api/admin/officers/**")
+                        .hasRole("ADMIN")
+
+                        // =========================
+                        // BENEFICIARY ACTIONS
+                        // =========================
+                        .requestMatchers("/api/applications/apply/**", "/api/applications/submit-documents/**", "/api/documents/upload/**")
+                        .hasRole("BENEFICIARY")
+
+                        // =========================
+                        // OFFICER ACTIONS
+                        // =========================
+                        .requestMatchers("/api/verifications/**", "/api/documents/verify/**")
+                        .hasAnyRole("LEVEL_1_OFFICER", "LEVEL_2_OFFICER", "LEVEL_3_OFFICER", "FINAL_APPROVAL_OFFICER")
+
+                        // =========================
+                        // GENERAL APPS & DOCS VIEWING
+                        // =========================
+                        .requestMatchers("/api/applications/**", "/api/documents/**")
+                        .authenticated()
 
                         // =========================
                         // BENEFICIARY + ADMIN

@@ -7,6 +7,14 @@ import com.infosys.subsidy.enums.CriterionType;
 import com.infosys.subsidy.enums.Operator;
 import com.infosys.subsidy.enums.SchemeStatus;
 import com.infosys.subsidy.service.SchemeService;
+import com.infosys.subsidy.entity.User;
+import com.infosys.subsidy.entity.SchemeRequiredDocument;
+import com.infosys.subsidy.enums.DocumentType;
+import com.infosys.subsidy.enums.UserRole;
+import com.infosys.subsidy.repository.UserRepository;
+import com.infosys.subsidy.repository.SchemeRequiredDocumentRepository;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -20,19 +28,56 @@ import org.springframework.stereotype.Component;
 public class SampleDataInitializer implements CommandLineRunner {
 
     private final SchemeService schemeService;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final SchemeRequiredDocumentRepository requiredDocRepo;
 
-    public SampleDataInitializer(SchemeService schemeService) {
+    @Value("${admin.default.name:System Admin}")
+    private String adminName;
+
+    @Value("${admin.default.email:admin@infosys.com}")
+    private String adminEmail;
+
+    @Value("${admin.default.password:admin123}")
+    private String adminPassword;
+
+    public SampleDataInitializer(SchemeService schemeService, UserRepository userRepository, PasswordEncoder passwordEncoder, SchemeRequiredDocumentRepository requiredDocRepo) {
         this.schemeService = schemeService;
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.requiredDocRepo = requiredDocRepo;
     }
 
     @Override
     public void run(String... args) {
-        if (schemeService.getTotalSchemeCount() == 0) {
-            loadSampleData(schemeService);
+        seedAdmin();
+        boolean needsData = false;
+        try {
+            if (schemeService.getSchemeByCode("SCH-PM-KISAN-01") == null) {
+                needsData = true;
+            }
+        } catch (Exception e) {
+            needsData = true; // Exception indicates scheme not found
+        }
+
+        if (needsData) {
+            loadSampleData(schemeService, requiredDocRepo);
         }
     }
 
-    public static void loadSampleData(SchemeService service) {
+    private void seedAdmin() {
+        if (!userRepository.existsByRole(UserRole.ADMIN)) {
+            User admin = new User();
+            admin.setName(adminName);
+            admin.setEmail(adminEmail);
+            admin.setPassword(passwordEncoder.encode(adminPassword));
+            admin.setRole(UserRole.ADMIN);
+            admin.setActive(true);
+            userRepository.save(admin);
+        }
+    }
+
+    public static void loadSampleData(SchemeService service, SchemeRequiredDocumentRepository requiredDocRepo) {
         // Scheme 1: PM Kisan Samman Nidhi (PM-KISAN)
         Scheme s1 = new Scheme(
                 null,
@@ -62,6 +107,11 @@ public class SampleDataInitializer implements CommandLineRunner {
                 null, "Aadhaar KYC Verification", CriterionType.BOOLEAN, Operator.EQUAL, "true",
                 20, 20, true, true, "Applicant Aadhaar number must be linked with bank account"
         ));
+
+        // Add Mandatory Documents
+        requiredDocRepo.save(createRequiredDoc(created1, DocumentType.AADHAAR_CARD, "Aadhaar Card", true));
+        requiredDocRepo.save(createRequiredDoc(created1, DocumentType.BANK_PASSBOOK, "Bank Passbook", true));
+        requiredDocRepo.save(createRequiredDoc(created1, DocumentType.INCOME_CERTIFICATE, "Income Certificate", true));
 
         // Scheme 2: Prime Minister Employment Generation Programme (PMEGP)
         Scheme s2 = new Scheme(
@@ -144,5 +194,15 @@ public class SampleDataInitializer implements CommandLineRunner {
                 null, "Institutional Registration Verified", CriterionType.BOOLEAN, Operator.EQUAL, "true",
                 40, 40, true, true, "Early pregnancy registration and MCP card verified"
         ));
+    }
+
+    private static SchemeRequiredDocument createRequiredDoc(Scheme scheme, DocumentType type, String name, boolean mandatory) {
+        SchemeRequiredDocument doc = new SchemeRequiredDocument();
+        doc.setScheme(scheme);
+        doc.setDocumentType(type);
+        doc.setDocumentName(name);
+        doc.setMandatory(mandatory);
+        doc.setActive(true);
+        return doc;
     }
 }

@@ -6,12 +6,20 @@ import com.infosys.subsidy.entity.ApplicationEligibilityData;
 import com.infosys.subsidy.entity.Beneficiary;
 import com.infosys.subsidy.entity.EligibilityCriteria;
 import com.infosys.subsidy.entity.Scheme;
+import com.infosys.subsidy.enums.ApplicationStatus;
+import com.infosys.subsidy.enums.VerificationLevel;
+import com.infosys.subsidy.enums.VerificationRoute;
 import com.infosys.subsidy.repository.ApplicationEligibilityDataRepository;
 import com.infosys.subsidy.repository.ApplicationRepository;
 import com.infosys.subsidy.repository.BeneficiaryRepository;
 import com.infosys.subsidy.repository.SchemeRepository;
+import com.infosys.subsidy.repository.UserRepository;
+import com.infosys.subsidy.enums.UserRole;
+import com.infosys.subsidy.entity.User;
 
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -24,23 +32,49 @@ public class ApplicationService {
     private final SchemeRepository schemeRepository;
     private final ApplicationEligibilityDataRepository eligibilityDataRepository;
     private final EligibilityService eligibilityService;
-
+    private final VerificationRoutingService verificationRoutingService;
+    private final DocumentValidationService documentValidationService;
+    private final UserRepository userRepository;
 
     public ApplicationService(
             ApplicationRepository applicationRepository,
             BeneficiaryRepository beneficiaryRepository,
             SchemeRepository schemeRepository,
             ApplicationEligibilityDataRepository eligibilityDataRepository,
-            EligibilityService eligibilityService) {
+            EligibilityService eligibilityService,
+            VerificationRoutingService verificationRoutingService,
+            DocumentValidationService documentValidationService,
+            UserRepository userRepository) {
 
         this.applicationRepository = applicationRepository;
         this.beneficiaryRepository = beneficiaryRepository;
         this.schemeRepository = schemeRepository;
         this.eligibilityDataRepository = eligibilityDataRepository;
         this.eligibilityService = eligibilityService;
+        this.verificationRoutingService = verificationRoutingService;
+        this.documentValidationService = documentValidationService;
+        this.userRepository = userRepository;
+    }
+
+    private void validateBeneficiaryOwnership(Beneficiary beneficiary) {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) {
+            userRepository.findByEmail(auth.getName()).ifPresent(user -> {
+                if (user.getRole() == UserRole.BENEFICIARY) {
+                    if (!beneficiary.getEmail().equalsIgnoreCase(user.getEmail())) {
+                        throw new RuntimeException("Unauthorized access to application");
+                    }
+                }
+            });
+        }
     }
 
 
+    // =====================================================
+    // BENEFICIARY APPLIES FOR SCHEME
+    // =====================================================
+
+    @Transactional
     public Application applyForScheme(
             Long beneficiaryId,
             Long schemeId,
@@ -54,9 +88,13 @@ public class ApplicationService {
         Beneficiary beneficiary = beneficiaryRepository
                 .findById(beneficiaryId)
                 .orElseThrow(() ->
-                        new RuntimeException("Beneficiary not found")
+                        new RuntimeException(
+                                "Beneficiary not found with ID: "
+                                        + beneficiaryId
+                        )
                 );
 
+        validateBeneficiaryOwnership(beneficiary);
 
         // ==========================================
         // 2. GET SCHEME
@@ -65,7 +103,10 @@ public class ApplicationService {
         Scheme scheme = schemeRepository
                 .findById(schemeId)
                 .orElseThrow(() ->
-                        new RuntimeException("Scheme not found")
+                        new RuntimeException(
+                                "Scheme not found with ID: "
+                                        + schemeId
+                        )
                 );
 
 
@@ -76,7 +117,8 @@ public class ApplicationService {
         Map<String, String> eligibilityData =
                 request.getEligibilityData();
 
-        if (eligibilityData == null || eligibilityData.isEmpty()) {
+        if (eligibilityData == null
+                || eligibilityData.isEmpty()) {
 
             throw new RuntimeException(
                     "Eligibility data is required"
@@ -93,12 +135,6 @@ public class ApplicationService {
         boolean mandatoryCriteriaPassed = true;
 
 
-        System.out.println("\n========================================");
-        System.out.println("DYNAMIC ELIGIBILITY CHECK STARTED");
-        System.out.println("Beneficiary: " + beneficiary.getName());
-        System.out.println("Beneficiary ID: " + beneficiaryId);
-        System.out.println("Scheme: " + scheme.getSchemeName());
-        System.out.println("========================================");
 
 
         // ==========================================
@@ -114,12 +150,6 @@ public class ApplicationService {
             // ==========================================
 
             if (!criterion.isActive()) {
-
-                System.out.println(
-                        "Skipping inactive criterion: "
-                                + criterion.getCriterionName()
-                );
-
                 continue;
             }
 
@@ -136,14 +166,11 @@ public class ApplicationService {
             // VALIDATE FIELD NAME
             // ==========================================
 
-            if (fieldName == null || fieldName.isBlank()) {
-
-                System.out.println(
-                        "Field name missing for criterion: "
-                                + criterion.getCriterionName()
-                );
+            if (fieldName == null
+                    || fieldName.isBlank()) {
 
                 if (criterion.isMandatory()) {
+
                     mandatoryCriteriaPassed = false;
                 }
 
@@ -152,7 +179,7 @@ public class ApplicationService {
 
 
             // ==========================================
-            // GET ACTUAL VALUE USING FIELD NAME
+            // GET ACTUAL VALUE
             // ==========================================
 
             String actualValue =
@@ -170,56 +197,6 @@ public class ApplicationService {
                     );
 
 
-            // ==========================================
-            // DEBUG OUTPUT
-            // ==========================================
-
-            System.out.println("\n----------------------------------------");
-
-            System.out.println(
-                    "Criterion Name: "
-                            + criterion.getCriterionName()
-            );
-
-            System.out.println(
-                    "Field Name: "
-                            + fieldName
-            );
-
-            System.out.println(
-                    "Actual Value: "
-                            + actualValue
-            );
-
-            System.out.println(
-                    "Expected Value: "
-                            + criterion.getExpectedValue()
-            );
-
-            System.out.println(
-                    "Type: "
-                            + criterion.getCriterionType()
-            );
-
-            System.out.println(
-                    "Operator: "
-                            + criterion.getOperator()
-            );
-
-            System.out.println(
-                    "Mandatory: "
-                            + criterion.isMandatory()
-            );
-
-            System.out.println(
-                    "Weight: "
-                            + criterion.getWeight()
-            );
-
-            System.out.println(
-                    "Passed: "
-                            + passed
-            );
 
 
             // ==========================================
@@ -227,19 +204,8 @@ public class ApplicationService {
             // ==========================================
 
             if (passed) {
-
-                totalScore += criterion.getWeight();
-
-                System.out.println(
-                        "Score Added: "
-                                + criterion.getWeight()
-                );
-
-            } else {
-
-                System.out.println(
-                        "Score Added: 0"
-                );
+                totalScore +=
+                        criterion.getWeight();
             }
 
 
@@ -247,61 +213,33 @@ public class ApplicationService {
             // CHECK MANDATORY CRITERIA
             // ==========================================
 
-            if (criterion.isMandatory() && !passed) {
-
+            if (criterion.isMandatory()
+                    && !passed) {
                 mandatoryCriteriaPassed = false;
-
-                System.out.println(
-                        "❌ MANDATORY CRITERION FAILED"
-                );
             }
         }
 
 
         // ==========================================
-        // 6. FINAL STATUS
+        // 6. DETERMINE ELIGIBILITY STATUS
         // ==========================================
 
-        String status;
+        ApplicationStatus applicationStatus;
 
-        if (mandatoryCriteriaPassed && totalScore >= 60) {
+        if (mandatoryCriteriaPassed
+                && totalScore >= 60) {
 
-            status = "ELIGIBLE";
+            applicationStatus =
+                    ApplicationStatus.ELIGIBLE;
 
         } else {
 
-            status = "NOT_ELIGIBLE";
+            applicationStatus =
+                    ApplicationStatus.NOT_ELIGIBLE;
         }
 
 
-        // ==========================================
-        // FINAL DEBUG OUTPUT
-        // ==========================================
 
-        System.out.println("\n========================================");
-        System.out.println("FINAL ELIGIBILITY RESULT");
-        System.out.println("========================================");
-
-        System.out.println(
-                "Total Score: " + totalScore
-        );
-
-        System.out.println(
-                "Mandatory Criteria Passed: "
-                        + mandatoryCriteriaPassed
-        );
-
-        System.out.println(
-                "Required Minimum Score: 60"
-        );
-
-        System.out.println(
-                "Final Status: " + status
-        );
-
-        System.out.println(
-                "========================================\n"
-        );
 
 
         // ==========================================
@@ -327,21 +265,59 @@ public class ApplicationService {
                 totalScore
         );
 
-        application.setStatus(
-                status
-        );
+
+        // ==========================================
+        // 8. HANDLE VERIFICATION WORKFLOW
+        // ==========================================
+
+        if (applicationStatus == ApplicationStatus.NOT_ELIGIBLE) {
+
+            application.setStatus(
+                    ApplicationStatus.NOT_ELIGIBLE
+            );
+
+            application.setCurrentVerificationLevel(null);
+
+            application.setVerificationRoute(null);
+
+            application.setRemarks(
+                    "Application did not meet the eligibility requirements. "
+                            + "Score: " + totalScore
+                            + ". Minimum required score: 60."
+            );
+
+        } else {
+
+            // --------------------------------------
+            // ELIGIBLE → DOCUMENTS PENDING
+            // --------------------------------------
+
+            application.setStatus(
+                    ApplicationStatus.DOCUMENTS_PENDING
+            );
+
+            application.setCurrentVerificationLevel(null);
+
+            application.setVerificationRoute(null);
+
+            application.setRemarks(
+                    "Application is eligible. Please upload all mandatory documents before submission."
+            );
+        }
 
 
         // ==========================================
-        // 8. SAVE APPLICATION FIRST
+        // 9. SAVE APPLICATION
         // ==========================================
 
         Application savedApplication =
-                applicationRepository.save(application);
+                applicationRepository.save(
+                        application
+                );
 
 
         // ==========================================
-        // 9. SAVE ALL DYNAMIC ELIGIBILITY ANSWERS
+        // 10. SAVE ELIGIBILITY ANSWERS
         // ==========================================
 
         for (Map.Entry<String, String> entry
@@ -350,28 +326,136 @@ public class ApplicationService {
             ApplicationEligibilityData data =
                     new ApplicationEligibilityData();
 
+
             data.setApplicationId(
                     savedApplication.getId()
             );
 
-            // This stores the FIELD NAME
-            // Example: percentage, attendance, annualIncome
+
+            // Store dynamic field name
+            // Example:
+            // annualIncome
+            // landArea
+            // percentage
+            // attendance
+
             data.setCriterionName(
                     entry.getKey()
             );
+
 
             data.setActualValue(
                     entry.getValue()
             );
 
-            eligibilityDataRepository.save(data);
+
+            eligibilityDataRepository.save(
+                    data
+            );
         }
 
 
         // ==========================================
-        // 10. RETURN SAVED APPLICATION
+        // 11. FINAL WORKFLOW DEBUG
+        // ==========================================
+
+        System.out.println(
+                "\n========================================"
+        );
+
+        System.out.println(
+                "APPLICATION WORKFLOW RESULT"
+        );
+
+        System.out.println(
+                "========================================"
+        );
+
+        System.out.println(
+                "Application ID: "
+                        + savedApplication.getId()
+        );
+
+        System.out.println(
+                "Eligibility Score: "
+                        + savedApplication.getEligibilityScore()
+        );
+
+        System.out.println(
+                "Status: "
+                        + savedApplication.getStatus()
+        );
+
+        System.out.println(
+                "Verification Level: "
+                        + savedApplication
+                        .getCurrentVerificationLevel()
+        );
+
+        System.out.println(
+                "Remarks: "
+                        + savedApplication.getRemarks()
+        );
+
+        System.out.println(
+                "========================================\n"
+        );
+
+
+        // ==========================================
+        // 12. RETURN APPLICATION
         // ==========================================
 
         return savedApplication;
+    }
+
+
+    // =====================================================
+    // SUBMIT APPLICATION DOCUMENTS && TRIGGER VERIFICATION
+    // =====================================================
+
+    @Transactional
+    public Application submitApplicationDocuments(Long applicationId) {
+
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new RuntimeException("Application not found with ID: " + applicationId));
+
+        Beneficiary beneficiary = beneficiaryRepository.findById(application.getBeneficiaryId())
+                .orElseThrow(() -> new RuntimeException("Beneficiary not found"));
+        validateBeneficiaryOwnership(beneficiary);
+
+        if (application.getStatus() != ApplicationStatus.DOCUMENTS_PENDING) {
+            throw new RuntimeException("Application applies are not pending documents check. Current status: " + application.getStatus());
+        }
+
+        boolean isValid = documentValidationService.validateMandatoryDocumentsUploaded(
+                application.getSchemeId(),
+                application.getId()
+        );
+
+        if (!isValid) {
+            var missingDocs = documentValidationService.getMissingMandatoryDocuments(application.getSchemeId(), application.getId());
+            throw new RuntimeException("Mandatory documents are missing: " + missingDocs);
+        }
+
+        Scheme scheme = schemeRepository.findById(application.getSchemeId()).orElseThrow();
+
+        VerificationRoute route =
+                verificationRoutingService.determineRoute(
+                        application.getEligibilityScore(),
+                        scheme.getGrantAmount()
+                );
+        application.setVerificationRoute(route);
+
+
+        application.setStatus(ApplicationStatus.PENDING_VERIFICATION);
+        application.setCurrentVerificationLevel(VerificationLevel.LEVEL_1);
+        application.setRemarks("Application is eligible and pending Level 1 verification. Verification route: " + route);
+
+        LocalDateTime assignedAt = LocalDateTime.now();
+        application.setVerificationAssignedAt(assignedAt);
+        application.setVerificationDueDate(assignedAt.plusDays(3));
+
+        return applicationRepository.save(application);
     }
 }

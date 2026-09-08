@@ -137,10 +137,9 @@ public class Scheme implements Serializable {
     }
 
     public void clearCriteria() {
-        for (EligibilityCriteria c : this.criteriaList) {
-            c.setScheme(null);
-        }
+
         this.criteriaList.clear();
+
         this.updatedAt = LocalDateTime.now();
     }
 

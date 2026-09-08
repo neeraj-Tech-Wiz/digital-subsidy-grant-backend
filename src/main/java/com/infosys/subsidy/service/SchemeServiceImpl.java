@@ -200,13 +200,19 @@ public class SchemeServiceImpl implements SchemeService {
         return schemeRepository.save(scheme);
     }
 
-    @Override
-    public boolean deleteScheme(Long schemeId) {
-        Scheme scheme = getSchemeById(schemeId);
-        criteriaRepository.deleteBySchemeId(schemeId);
-        schemeRepository.delete(scheme);
-        return true;
-    }
+        @Override
+        @Transactional
+        public boolean deleteScheme(Long schemeId) {
+
+            Scheme scheme = schemeRepository.findById(schemeId)
+                    .orElseThrow(() ->
+                            new SchemeNotFoundException("Scheme not found with ID: " + schemeId)
+                    );
+
+            schemeRepository.delete(scheme);
+
+            return true;
+        }
 
     // ==================== SCHEME & CRITERIA RELATIONSHIP OPERATIONS ====================
 
