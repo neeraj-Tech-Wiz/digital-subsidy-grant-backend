@@ -2,26 +2,17 @@ package com.infosys.subsidy.dto;
 
 public class DocumentVerificationRequest {
 
-    private boolean verified;
-    private boolean reuploadRequired;
+    private String action;
     private String remarks;
 
     public DocumentVerificationRequest() {}
 
-    public boolean isVerified() {
-        return verified;
+    public String getAction() {
+        return action;
     }
 
-    public void setVerified(boolean verified) {
-        this.verified = verified;
-    }
-
-    public boolean isReuploadRequired() {
-        return reuploadRequired;
-    }
-
-    public void setReuploadRequired(boolean reuploadRequired) {
-        this.reuploadRequired = reuploadRequired;
+    public void setAction(String action) {
+        this.action = action;
     }
 
     public String getRemarks() {

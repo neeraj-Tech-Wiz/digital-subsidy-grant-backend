@@ -6,6 +6,18 @@ import jakarta.persistence.*;
 @Table(name = "beneficiaries")
 public class Beneficiary {
 
+    // =============================
+    // USER RELATIONSHIP
+    // =============================
+
+    @OneToOne
+    @JoinColumn(
+            name = "user_id",
+            nullable = true,
+            unique = true
+    )
+    private User user;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -238,4 +250,12 @@ public class Beneficiary {
     public void setRegion(String region) {
         this.region = region;
     }
-}
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+}

@@ -4,23 +4,25 @@ import com.infosys.subsidy.dto.DocumentUploadResponse;
 import com.infosys.subsidy.dto.DocumentVerificationRequest;
 import com.infosys.subsidy.entity.Application;
 import com.infosys.subsidy.entity.ApplicationDocument;
+import com.infosys.subsidy.entity.Beneficiary;
 import com.infosys.subsidy.entity.SchemeRequiredDocument;
+import com.infosys.subsidy.entity.User;
 import com.infosys.subsidy.enums.DocumentStatus;
 import com.infosys.subsidy.enums.DocumentType;
+import com.infosys.subsidy.enums.UserRole;
+import com.infosys.subsidy.enums.VerificationLevel;
 import com.infosys.subsidy.repository.ApplicationDocumentRepository;
 import com.infosys.subsidy.repository.ApplicationRepository;
+import com.infosys.subsidy.repository.BeneficiaryRepository;
 import com.infosys.subsidy.repository.SchemeRequiredDocumentRepository;
+import com.infosys.subsidy.repository.UserRepository;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.security.core.context.SecurityContextHolder;
-
-import com.infosys.subsidy.entity.User;
-import com.infosys.subsidy.entity.Beneficiary;
-import com.infosys.subsidy.enums.UserRole;
-import com.infosys.subsidy.enums.VerificationLevel;
-import com.infosys.subsidy.repository.UserRepository;
-import com.infosys.subsidy.repository.BeneficiaryRepository;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -36,12 +38,14 @@ public class ApplicationDocumentService {
     private final UserRepository userRepository;
     private final BeneficiaryRepository beneficiaryRepository;
 
-    public ApplicationDocumentService(ApplicationDocumentRepository applicationDocumentRepository,
-                                      ApplicationRepository applicationRepository,
-                                      SchemeRequiredDocumentRepository schemeRequiredDocumentRepository,
-                                      DocumentStorageService documentStorageService,
-                                      UserRepository userRepository,
-                                      BeneficiaryRepository beneficiaryRepository) {
+    public ApplicationDocumentService(
+            ApplicationDocumentRepository applicationDocumentRepository,
+            ApplicationRepository applicationRepository,
+            SchemeRequiredDocumentRepository schemeRequiredDocumentRepository,
+            DocumentStorageService documentStorageService,
+            UserRepository userRepository,
+            BeneficiaryRepository beneficiaryRepository) {
+
         this.applicationDocumentRepository = applicationDocumentRepository;
         this.applicationRepository = applicationRepository;
         this.schemeRequiredDocumentRepository = schemeRequiredDocumentRepository;
@@ -50,52 +54,100 @@ public class ApplicationDocumentService {
         this.beneficiaryRepository = beneficiaryRepository;
     }
 
+
+    // ============================================================
+    // HELPER — Verify application ownership for BENEFICIARY users.
+    //
+    // OLD: compared beneficiary.email == user.email (fragile)
+    // NEW: uses findByUserId() to get the proper beneficiary
+    //      and compares beneficiary.id == application.beneficiaryId
+    //
+    // Returns 403 Forbidden if ownership check fails.
+    // Non-beneficiary roles (officers, admin) are not restricted here
+    // since the Security layer enforces their access.
+    // ============================================================
+
     private void validateBeneficiaryOwnership(Application application) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("Authenticated user not found"));
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
+
         if (user.getRole() == UserRole.BENEFICIARY) {
-            Beneficiary beneficiary = beneficiaryRepository.findById(application.getBeneficiaryId())
-                    .orElseThrow(() -> new RuntimeException("Beneficiary not found"));
-            if (!beneficiary.getEmail().equalsIgnoreCase(user.getEmail())) {
-                throw new RuntimeException("Unauthorized access to application documents");
+            // Use the proper user_id-based lookup instead of email matching
+            Beneficiary beneficiary = beneficiaryRepository
+                    .findByUserId(user.getId())
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "Beneficiary profile not found. Please complete your profile first."));
+
+            if (!beneficiary.getId().equals(application.getBeneficiaryId())) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "You are not authorized to access this application.");
             }
         }
     }
 
+
+    // ============================================================
+    // UPLOAD DOCUMENT
+    //
+    // Ownership verified via user_id-based lookup.
+    // Only the owner beneficiary can upload.
+    // ============================================================
+
     @Transactional
-    public DocumentUploadResponse uploadDocument(Long applicationId, DocumentType documentType, MultipartFile file) {
+    public DocumentUploadResponse uploadDocument(
+            Long applicationId,
+            DocumentType documentType,
+            MultipartFile file) {
+
         Application application = applicationRepository.findById(applicationId)
-                .orElseThrow(() -> new RuntimeException("Application not found with ID: " + applicationId));
-        
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Application not found with ID: " + applicationId));
+
         validateBeneficiaryOwnership(application);
 
         // Validate file type
         String contentType = file.getContentType();
-        if (contentType == null || (!contentType.equals("application/pdf") && !contentType.equals("image/jpeg") && !contentType.equals("image/png"))) {
-            throw new RuntimeException("Only allowed file types are PDF, JPG, JPEG, PNG");
+        if (contentType == null
+                || (!contentType.equals("application/pdf")
+                && !contentType.equals("image/jpeg")
+                && !contentType.equals("image/png"))) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Only allowed file types are PDF, JPG, JPEG, PNG");
         }
 
         // Validate if document type is configured for this scheme
-        List<SchemeRequiredDocument> schemeDocs = schemeRequiredDocumentRepository.findBySchemeIdAndActiveTrue(application.getSchemeId());
+        List<SchemeRequiredDocument> schemeDocs =
+                schemeRequiredDocumentRepository.findBySchemeIdAndActiveTrue(application.getSchemeId());
         Optional<SchemeRequiredDocument> matchedConfig = schemeDocs.stream()
                 .filter(doc -> doc.getDocumentType() == documentType)
                 .findFirst();
 
         if (matchedConfig.isEmpty()) {
-            throw new RuntimeException("Document type " + documentType + " is not configured for this scheme");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Document type " + documentType + " is not configured for this scheme");
         }
 
         // Check if there's already an active uploaded document of same type
-        Optional<ApplicationDocument> existingDoc = applicationDocumentRepository.findTopByApplicationIdAndDocumentTypeOrderByUploadedAtDesc(applicationId, documentType);
-        
-        DocumentStatus status = DocumentStatus.UPLOADED;
-        
+        Optional<ApplicationDocument> existingDoc =
+                applicationDocumentRepository.findTopByApplicationIdAndDocumentTypeOrderByUploadedAtDesc(
+                        applicationId, documentType);
+
         if (existingDoc.isPresent()) {
             ApplicationDocument doc = existingDoc.get();
-            if (doc.getDocumentStatus() == DocumentStatus.VERIFIED || doc.getDocumentStatus() == DocumentStatus.UNDER_VERIFICATION || doc.getDocumentStatus() == DocumentStatus.UPLOADED) {
-                throw new RuntimeException("An active document of type " + documentType + " is already uploaded");
+            if (doc.getDocumentStatus() == DocumentStatus.VERIFIED
+                    || doc.getDocumentStatus() == DocumentStatus.UNDER_VERIFICATION
+                    || doc.getDocumentStatus() == DocumentStatus.UPLOADED) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "An active document of type " + documentType + " is already uploaded");
             }
-            // If REUPLOAD_REQUIRED or REJECTED, we allow upload
         }
 
         String filePath = documentStorageService.storeFile(file);
@@ -108,7 +160,7 @@ public class ApplicationDocumentService {
         document.setFilePath(filePath);
         document.setContentType(contentType);
         document.setFileSize(file.getSize());
-        document.setDocumentStatus(status);
+        document.setDocumentStatus(DocumentStatus.UPLOADED);
 
         document = applicationDocumentRepository.save(document);
 
@@ -123,47 +175,102 @@ public class ApplicationDocumentService {
         );
     }
 
+
+    // ============================================================
+    // GET APPLICATION DOCUMENTS
+    //
+    // Ownership verified: only the owning beneficiary or officers
+    // can view documents.
+    // ============================================================
+
     public List<ApplicationDocument> getApplicationDocuments(Long applicationId) {
         Application application = applicationRepository.findById(applicationId)
-                .orElseThrow(() -> new RuntimeException("Application not found with ID: " + applicationId));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Application not found with ID: " + applicationId));
         validateBeneficiaryOwnership(application);
         return applicationDocumentRepository.findByApplicationId(applicationId);
     }
 
-    @Transactional
-    public ApplicationDocument verifyDocument(Long documentId, DocumentVerificationRequest request) {
-        ApplicationDocument document = applicationDocumentRepository.findById(documentId)
-                .orElseThrow(() -> new RuntimeException("Document not found with ID: " + documentId));
 
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        User officer = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("Authenticated user not found"));
+    // ============================================================
+    // VERIFY DOCUMENT (Officer action)
+    //
+    // Ownership check not applied — officers can access any application.
+    // Role and level restrictions are enforced here.
+    // ============================================================
+
+    @Transactional
+    public ApplicationDocument verifyDocument(
+            Long applicationId,
+            Long documentId,
+            DocumentVerificationRequest request) {
+
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Application not found with ID: " + applicationId));
+
+        ApplicationDocument document = applicationDocumentRepository.findById(documentId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Document not found with ID: " + documentId));
+
+        if (!document.getApplication().getId().equals(applicationId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND, "Document does not belong to the specified application.");
+        }
         
-        if (!officer.isActive()) {
-            throw new RuntimeException("Officer account is deactivated");
+        if (application.getStatus() != com.infosys.subsidy.enums.ApplicationStatus.PENDING_VERIFICATION) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Application is not currently pending verification.");
         }
 
-        VerificationLevel currentLevel = document.getApplication().getCurrentVerificationLevel();
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User officer = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
+
+        if (!officer.isActive()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "Officer account is deactivated");
+        }
+
+        VerificationLevel currentLevel = application.getCurrentVerificationLevel();
         if (currentLevel == null) {
-            throw new RuntimeException("Cannot verify documents. Application has no active verification level.");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Application has no active verification level.");
         }
 
         switch (currentLevel) {
-            case LEVEL_1: if (officer.getRole() != UserRole.LEVEL_1_OFFICER) throw new RuntimeException("Unauthorized for LEVEL_1"); break;
-            case LEVEL_2: if (officer.getRole() != UserRole.LEVEL_2_OFFICER) throw new RuntimeException("Unauthorized for LEVEL_2"); break;
-            case LEVEL_3: if (officer.getRole() != UserRole.LEVEL_3_OFFICER) throw new RuntimeException("Unauthorized for LEVEL_3"); break;
-            case FINAL_APPROVAL: if (officer.getRole() != UserRole.FINAL_APPROVAL_OFFICER) throw new RuntimeException("Unauthorized for FINAL_APPROVAL"); break;
+            case LEVEL_1:
+                if (officer.getRole() != UserRole.LEVEL_1_OFFICER)
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Unauthorized for LEVEL_1");
+                break;
+            case LEVEL_2:
+                if (officer.getRole() != UserRole.LEVEL_2_OFFICER)
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Unauthorized for LEVEL_2");
+                break;
+            case LEVEL_3:
+                if (officer.getRole() != UserRole.LEVEL_3_OFFICER)
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Unauthorized for LEVEL_3");
+                break;
+            case FINAL_APPROVAL:
+                if (officer.getRole() != UserRole.FINAL_APPROVAL_OFFICER)
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Unauthorized for FINAL_APPROVAL");
+                break;
         }
 
-        if (document.getDocumentStatus() == DocumentStatus.VERIFIED) {
-            throw new RuntimeException("Document is already verified");
+        if (document.getDocumentStatus() == DocumentStatus.VERIFIED || document.getDocumentStatus() == DocumentStatus.REJECTED) {
+            // Already processed
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Document is already fully processed: " + document.getDocumentStatus());
         }
 
-        if (request.isVerified()) {
+        if ("VERIFIED".equalsIgnoreCase(request.getAction())) {
             document.setDocumentStatus(DocumentStatus.VERIFIED);
-        } else if (request.isReuploadRequired()) {
-            document.setDocumentStatus(DocumentStatus.REUPLOAD_REQUIRED);
-        } else {
+        } else if ("REJECTED".equalsIgnoreCase(request.getAction())) {
             document.setDocumentStatus(DocumentStatus.REJECTED);
+        } else {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid verify action requested.");
         }
 
         document.setRemarks(request.getRemarks());
@@ -171,5 +278,30 @@ public class ApplicationDocumentService {
         document.setVerifiedBy(officer.getId());
 
         return applicationDocumentRepository.save(document);
+    }
+    
+    // ============================================================
+    // STREAM DOWNLOAD DOCUMENT
+    // ============================================================
+
+    public org.springframework.core.io.Resource downloadDocument(Long documentId) {
+        ApplicationDocument document = applicationDocumentRepository.findById(documentId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Document not found with ID: " + documentId));
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
+
+        if (!user.isActive()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account is deactivated");
+        }
+
+        if (user.getRole() == UserRole.BENEFICIARY) {
+             validateBeneficiaryOwnership(document.getApplication());
+        }
+
+        return documentStorageService.loadFileAsResource(document.getFilePath());
     }
 }

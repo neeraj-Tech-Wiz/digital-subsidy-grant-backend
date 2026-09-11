@@ -4,6 +4,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -53,6 +55,20 @@ public class DocumentStorageService {
             return targetLocation.toString();
         } catch (IOException ex) {
             throw new RuntimeException("Could not store file " + originalFileName + ". Please try again!", ex);
+        }
+    }
+
+    public Resource loadFileAsResource(String filePath) {
+        try {
+            Path file = Paths.get(filePath).normalize();
+            Resource resource = new UrlResource(file.toUri());
+            if (resource.exists()) {
+                return resource;
+            } else {
+                throw new RuntimeException("File not found: " + filePath);
+            }
+        } catch (Exception ex) {
+            throw new RuntimeException("Error reading file: " + filePath, ex);
         }
     }
 }

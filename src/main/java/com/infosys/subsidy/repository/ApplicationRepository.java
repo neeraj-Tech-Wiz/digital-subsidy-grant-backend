@@ -14,9 +14,13 @@ public interface ApplicationRepository
 
     List<Application> findBySchemeId(Long schemeId);
 
-
     List<Application> findByStatusAndVerificationDueDateBefore(
             ApplicationStatus status,
             LocalDateTime dateTime
+    );
+
+    List<Application> findByCurrentVerificationLevelAndStatus(
+            com.infosys.subsidy.enums.VerificationLevel level, 
+            ApplicationStatus status
     );
 }

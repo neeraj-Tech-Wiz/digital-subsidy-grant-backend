@@ -171,6 +171,8 @@ public class DocumentConsoleDemo {
     }
 
     private void verifyDocumentAction(Scanner scanner, String action) {
+        System.out.print("Enter Application ID: ");
+        Long appId = Long.parseLong(scanner.nextLine());
         System.out.print("Enter Document ID: ");
         Long docId;
         try { docId = Long.parseLong(scanner.nextLine()); } catch (Exception e) { return; }
@@ -180,12 +182,10 @@ public class DocumentConsoleDemo {
 
         DocumentVerificationRequest req = new DocumentVerificationRequest();
         req.setRemarks(remarks);
-        if ("VERIFY".equals(action)) { req.setVerified(true); }
-        else if ("REJECT".equals(action)) { req.setVerified(false); }
-        else if ("REUPLOAD".equals(action)) { req.setReuploadRequired(true); }
+        req.setAction(action);
 
         try {
-            applicationDocumentService.verifyDocument(docId, req);
+            applicationDocumentService.verifyDocument(appId, docId, req);
             System.out.println("Document successfully updated to " + action);
         } catch (Exception e) {
             System.out.println("Action failed: " + e.getMessage());

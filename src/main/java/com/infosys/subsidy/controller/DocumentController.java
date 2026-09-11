@@ -1,13 +1,16 @@
 package com.infosys.subsidy.controller;
 
-import com.infosys.subsidy.dto.DocumentUploadResponse;
-import com.infosys.subsidy.dto.DocumentVerificationRequest;
 import com.infosys.subsidy.entity.ApplicationDocument;
 import com.infosys.subsidy.enums.DocumentType;
 import com.infosys.subsidy.service.ApplicationDocumentService;
+import com.infosys.subsidy.dto.DocumentUploadResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import java.nio.file.Files;
 
 import java.util.List;
 
@@ -38,12 +41,24 @@ public class DocumentController {
         return ResponseEntity.ok(documents);
     }
 
-    @PostMapping("/verify/{documentId}")
-    public ResponseEntity<ApplicationDocument> verifyDocument(
-            @PathVariable Long documentId,
-            @RequestBody DocumentVerificationRequest request) {
+    @GetMapping("/{documentId}")
+    public ResponseEntity<Resource> downloadDocument(@PathVariable Long documentId) {
+        Resource resource = documentService.downloadDocument(documentId);
         
-        ApplicationDocument document = documentService.verifyDocument(documentId, request);
-        return ResponseEntity.ok(document);
+        String contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE;
+        try {
+            contentType = Files.probeContentType(resource.getFile().toPath());
+        } catch (Exception e) {
+            // fallback
+        }
+        
+        if (contentType == null) {
+            contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE;
+        }
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
+                .body(resource);
     }
 }

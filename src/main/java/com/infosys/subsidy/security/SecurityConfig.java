@@ -122,8 +122,25 @@ public class SecurityConfig {
                         // =========================
                         // BENEFICIARY ACTIONS
                         // =========================
-                        .requestMatchers("/api/applications/apply/**", "/api/applications/submit-documents/**", "/api/documents/upload/**")
-                        .hasRole("BENEFICIARY")
+
+                        // Profile creation — BENEFICIARY only
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/beneficiaries/profile"
+                        ).hasRole("BENEFICIARY")
+
+                        // Get own profile — BENEFICIARY only
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/beneficiaries/me"
+                        ).hasRole("BENEFICIARY")
+
+                        // Apply for scheme, submit documents, upload documents — BENEFICIARY only
+                        .requestMatchers(
+                                "/api/applications/apply/**",
+                                "/api/applications/submit-documents/**",
+                                "/api/documents/upload/**"
+                        ).hasRole("BENEFICIARY")
 
                         // =========================
                         // OFFICER ACTIONS
