@@ -16,6 +16,7 @@ import com.infosys.subsidy.repository.SchemeRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -30,10 +31,12 @@ public class SchemeServiceImpl implements SchemeService {
 
     private final SchemeRepository schemeRepository;
     private final EligibilityCriteriaRepository criteriaRepository;
+    private final com.infosys.subsidy.repository.SchemeRequiredDocumentRepository documentRepository;
 
-    public SchemeServiceImpl(SchemeRepository schemeRepository, EligibilityCriteriaRepository criteriaRepository) {
+    public SchemeServiceImpl(SchemeRepository schemeRepository, EligibilityCriteriaRepository criteriaRepository, com.infosys.subsidy.repository.SchemeRequiredDocumentRepository documentRepository) {
         this.schemeRepository = schemeRepository;
         this.criteriaRepository = criteriaRepository;
+        this.documentRepository = documentRepository;
     }
 
     // ==================== SCHEME OPERATIONS ====================
@@ -48,8 +51,8 @@ public class SchemeServiceImpl implements SchemeService {
         scheme.setSchemeCode(request.getSchemeCode() != null ? request.getSchemeCode().trim() : null);
         scheme.setSchemeName(request.getSchemeName() != null ? request.getSchemeName().trim() : null);
         scheme.setDescription(request.getDescription() != null ? request.getDescription().trim() : null);
-        scheme.setGrantAmount(request.getGrantAmount() != null ? request.getGrantAmount() : 0.0);
-        scheme.setTotalBudget(request.getTotalBudget() != null ? request.getTotalBudget() : 0.0);
+        scheme.setGrantAmount(request.getGrantAmount() != null ? request.getGrantAmount() : BigDecimal.ZERO);
+        scheme.setTotalBudget(request.getTotalBudget() != null ? request.getTotalBudget() : BigDecimal.ZERO);
         scheme.setStatus(request.getStatus() != null ? request.getStatus() : SchemeStatus.DRAFT);
         scheme.setApplicableRegion(request.getApplicableRegion() != null ? request.getApplicableRegion().trim() : "All India");
         scheme.setBeneficiaryCategory(request.getBeneficiaryCategory() != null ? request.getBeneficiaryCategory() : BeneficiaryCategory.GENERAL);
@@ -118,11 +121,11 @@ public class SchemeServiceImpl implements SchemeService {
         if (updates.getDescription() != null) {
             existing.setDescription(updates.getDescription().trim());
         }
-        if (updates.getGrantAmount() != null && updates.getGrantAmount() > 0) {
+        if (updates.getGrantAmount() != null && updates.getGrantAmount().compareTo(BigDecimal.ZERO) > 0) {
             existing.setGrantAmount(updates.getGrantAmount());
         }
-        if (updates.getTotalBudget() != null && updates.getTotalBudget() > 0) {
-            if (updates.getTotalBudget() < existing.getGrantAmount()) {
+        if (updates.getTotalBudget() != null && updates.getTotalBudget().compareTo(BigDecimal.ZERO) > 0) {
+            if (updates.getTotalBudget().compareTo(existing.getGrantAmount()) < 0) {
                 throw new ValidationException("Total budget must be at least equal to single grant amount (₹" + existing.getGrantAmount() + ")");
             }
             existing.setTotalBudget(updates.getTotalBudget());
@@ -397,18 +400,26 @@ public class SchemeServiceImpl implements SchemeService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public java.util.List<com.infosys.subsidy.entity.SchemeRequiredDocument> getActiveSchemeDocuments(Long schemeId) {
+        getSchemeById(schemeId); // verify exists
+        return documentRepository.findBySchemeIdAndActiveTrue(schemeId);
+    }
+
+    @Override
     public Scheme recordDisbursement(Long schemeId, double amount) {
         if (amount <= 0) {
             throw new ValidationException("Disbursement amount must be greater than zero");
         }
         Scheme scheme = getSchemeById(schemeId);
-        if (scheme.getRemainingBudget() < amount) {
-            throw new ValidationException("Insufficient scheme budget! Available: ₹" + scheme.getRemainingBudget() + ", Requested: ₹" + amount);
+        BigDecimal amountBd = BigDecimal.valueOf(amount);
+        if (scheme.getRemainingBudget().compareTo(amountBd) < 0) {
+            throw new ValidationException("Insufficient scheme budget! Available: ₹" + scheme.getRemainingBudget() + ", Requested: ₹" + amountBd);
         }
-        scheme.setDisbursedAmount(scheme.getDisbursedAmount() + amount);
+        scheme.setDisbursedAmount(scheme.getDisbursedAmount().add(amountBd));
 
         // If budget exhausted, optionally update status
-        if (scheme.getRemainingBudget() <= 0) {
+        if (scheme.getRemainingBudget().compareTo(BigDecimal.ZERO) <= 0) {
             scheme.setStatus(SchemeStatus.CLOSED);
         }
 
@@ -430,13 +441,13 @@ public class SchemeServiceImpl implements SchemeService {
         if (scheme.getSchemeCode() == null || scheme.getSchemeCode().trim().isEmpty()) {
             throw new ValidationException("Scheme code cannot be empty");
         }
-        if (scheme.getGrantAmount() <= 0) {
+        if (scheme.getGrantAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new ValidationException("Grant amount must be greater than 0");
         }
-        if (scheme.getTotalBudget() <= 0) {
+        if (scheme.getTotalBudget().compareTo(BigDecimal.ZERO) <= 0) {
             throw new ValidationException("Total budget allocation must be greater than 0");
         }
-        if (scheme.getTotalBudget() < scheme.getGrantAmount()) {
+        if (scheme.getTotalBudget().compareTo(scheme.getGrantAmount()) < 0) {
             throw new ValidationException("Total budget allocation (₹" + scheme.getTotalBudget() +
                     ") must be at least the individual grant amount (₹" + scheme.getGrantAmount() + ")");
         }

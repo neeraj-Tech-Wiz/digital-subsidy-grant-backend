@@ -11,9 +11,15 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
+
 @Repository
 public interface SchemeRepository extends JpaRepository<Scheme, Long> {
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM Scheme s WHERE s.id = :id")
+    Optional<Scheme> findByIdWithLock(@Param("id") Long id);
     Optional<Scheme> findBySchemeCode(String schemeCode);
 
     Optional<Scheme> findBySchemeName(String schemeName);

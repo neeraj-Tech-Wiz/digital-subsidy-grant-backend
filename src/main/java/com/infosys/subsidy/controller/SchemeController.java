@@ -111,6 +111,12 @@ public class SchemeController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/{id}/documents")
+    public ResponseEntity<List<com.infosys.subsidy.entity.SchemeRequiredDocument>> getSchemeDocuments(@PathVariable Long id) {
+        List<com.infosys.subsidy.entity.SchemeRequiredDocument> docs = schemeService.getActiveSchemeDocuments(id);
+        return ResponseEntity.ok(docs);
+    }
+
     @PostMapping("/{id}/criteria")
     public ResponseEntity<EligibilityCriteriaResponse> addCriterion(
             @PathVariable Long id,

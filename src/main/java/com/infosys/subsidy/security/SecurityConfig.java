@@ -143,7 +143,13 @@ public class SecurityConfig {
                         ).hasRole("BENEFICIARY")
 
                         // =========================
-                        // OFFICER ACTIONS
+                        // GRANT OFFICER ACTIONS
+                        // =========================
+                        .requestMatchers("/api/grants/**")
+                        .hasAnyRole("GRANT_OFFICER", "ADMIN")
+
+                        // =========================
+                        // VERIFICATION OFFICER ACTIONS
                         // =========================
                         .requestMatchers("/api/verifications/**", "/api/documents/verify/**")
                         .hasAnyRole("LEVEL_1_OFFICER", "LEVEL_2_OFFICER", "LEVEL_3_OFFICER", "FINAL_APPROVAL_OFFICER")
@@ -164,7 +170,8 @@ public class SecurityConfig {
                         )
                         .hasAnyRole(
                                 "BENEFICIARY",
-                                "ADMIN"
+                                "ADMIN",
+                                "GRANT_OFFICER"
                         )
 
                         .requestMatchers("/api/schemes/**").permitAll()

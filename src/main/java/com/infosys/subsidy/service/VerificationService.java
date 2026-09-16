@@ -23,6 +23,7 @@ import com.infosys.subsidy.dto.ApplicationDocumentReviewDTO;
 import com.infosys.subsidy.entity.Beneficiary;
 import com.infosys.subsidy.entity.Scheme;
 import com.infosys.subsidy.entity.VerificationHistory;
+import com.infosys.subsidy.repository.ApplicationEligibilityDataRepository;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
@@ -41,6 +42,8 @@ public class VerificationService {
     private final SchemeRepository schemeRepository;
     private final VerificationHistoryRepository verificationHistoryRepository;
     private final ApplicationDocumentRepository applicationDocumentRepository;
+    private final ApplicationEligibilityDataRepository applicationEligibilityDataRepository;
+    private final EligibilityService eligibilityService;
 
     public VerificationService(
             ApplicationRepository applicationRepository,
@@ -50,7 +53,9 @@ public class VerificationService {
             BeneficiaryRepository beneficiaryRepository,
             SchemeRepository schemeRepository,
             VerificationHistoryRepository verificationHistoryRepository,
-            ApplicationDocumentRepository applicationDocumentRepository) {
+            ApplicationDocumentRepository applicationDocumentRepository,
+            ApplicationEligibilityDataRepository applicationEligibilityDataRepository,
+            EligibilityService eligibilityService) {
 
         this.applicationRepository = applicationRepository;
         this.verificationRoutingService = verificationRoutingService;
@@ -60,6 +65,8 @@ public class VerificationService {
         this.schemeRepository = schemeRepository;
         this.verificationHistoryRepository = verificationHistoryRepository;
         this.applicationDocumentRepository = applicationDocumentRepository;
+        this.applicationEligibilityDataRepository = applicationEligibilityDataRepository;
+        this.eligibilityService = eligibilityService;
     }
 
 
@@ -88,9 +95,7 @@ public class VerificationService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Application is already processed or not eligible.");
         }
 
-        if (application.getStatus() != ApplicationStatus.PENDING_VERIFICATION) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Application is not currently pending verification.");
-        }
+
 
         VerificationLevel currentLevel = application.getCurrentVerificationLevel();
         if (currentLevel == null) {
@@ -99,6 +104,14 @@ public class VerificationService {
         
         VerificationLevel officerLevel = getVerificationLevelFromRole(officer.getRole());
         
+        ApplicationStatus expectedStatus = (officerLevel == VerificationLevel.LEVEL_3) 
+                ? ApplicationStatus.ESCALATED 
+                : ApplicationStatus.PENDING_VERIFICATION;
+
+        if (application.getStatus() != expectedStatus) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Application is not currently pending verification or escalation.");
+        }
+
         if (currentLevel != officerLevel) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not authorized to verify this application at its current level.");
         }
@@ -134,13 +147,19 @@ public class VerificationService {
                     throw new ResponseStatusException(HttpStatus.CONFLICT, "Application cannot be finally approved. Mandatory documents are not fully verified: " + unverifiedDocs);
                 }
                 
-                history.setAction("APPROVED");
+                history.setAction("FINAL_APPROVED");
                 application.setStatus(ApplicationStatus.APPROVED);
                 application.setCurrentVerificationLevel(null);
                 application.setVerificationCompletedAt(LocalDateTime.now());
                 application.setVerificationDueDate(null);
             } else {
-                history.setAction("FORWARDED");
+                if (currentLevel == VerificationLevel.LEVEL_3) {
+                    history.setAction("ESCALATION_REVIEWED");
+                } else if (currentLevel == VerificationLevel.LEVEL_1) {
+                    history.setAction("APPLICATION_REVIEWED");
+                } else {
+                    history.setAction("FORWARDED");
+                }
                 application.setCurrentVerificationLevel(nextLevel);
                 application.setStatus(ApplicationStatus.PENDING_VERIFICATION);
                 
@@ -176,8 +195,12 @@ public class VerificationService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not assigned to review this application in its current verification level.");
         }
 
-        if (application.getStatus() != ApplicationStatus.PENDING_VERIFICATION) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Application is no longer pending verification.");
+        ApplicationStatus expectedStatus = (officerLevel == VerificationLevel.LEVEL_3) 
+                ? ApplicationStatus.ESCALATED 
+                : ApplicationStatus.PENDING_VERIFICATION;
+
+        if (application.getStatus() != expectedStatus) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Application is no longer pending verification or escalation.");
         }
 
         Beneficiary beneficiary = beneficiaryRepository.findById(application.getBeneficiaryId())
@@ -216,6 +239,48 @@ public class VerificationService {
         
         dto.setDocuments(docDtos);
 
+        // Load Verification History
+        List<com.infosys.subsidy.dto.VerificationHistoryDTO> historyDtos = verificationHistoryRepository.findByApplicationIdOrderByActionTimestampAsc(application.getId())
+            .stream().map(h -> new com.infosys.subsidy.dto.VerificationHistoryDTO(h.getOfficerName(), h.getOfficerRole(), h.getVerificationLevel(), h.getAction(), h.getRemarks(), h.getActionTimestamp()))
+            .collect(Collectors.toList());
+        dto.setVerificationHistory(historyDtos);
+        
+        // Process Eligibility Score Breakdown
+        List<com.infosys.subsidy.entity.ApplicationEligibilityData> dataList = applicationEligibilityDataRepository.findByApplicationId(application.getId());
+        java.util.Map<String, String> eligibilityDataMap = dataList.stream().collect(Collectors.toMap(com.infosys.subsidy.entity.ApplicationEligibilityData::getCriterionName, com.infosys.subsidy.entity.ApplicationEligibilityData::getActualValue, (a,b) -> a));
+        
+        List<com.infosys.subsidy.dto.EligibilityScoreDetailsDTO> eligibilityDetails = new java.util.ArrayList<>();
+        if (scheme.getCriteriaList() != null) {
+            for (com.infosys.subsidy.entity.EligibilityCriteria criterion : scheme.getCriteriaList()) {
+                if (!criterion.isActive()) continue;
+                String fieldName = criterion.getFieldName();
+                if (fieldName == null || fieldName.isBlank()) fieldName = criterion.getCriterionName();
+                String actualVal = eligibilityDataMap.getOrDefault(fieldName, "N/A");
+                
+                boolean passed = eligibilityService.evaluateCriterion(eligibilityDataMap, criterion);
+                int maxPoints = criterion.getWeight();
+                int points = passed ? maxPoints : 0;
+                
+                String result;
+                if (passed) {
+                    result = "ELIGIBLE";
+                } else if (!criterion.isMandatory()) {
+                    if ("N/A".equals(actualVal) || actualVal.trim().isEmpty() || "Not Provided".equalsIgnoreCase(actualVal) || "false".equalsIgnoreCase(actualVal)) {
+                        result = "OPTIONAL NOT PROVIDED";
+                    } else {
+                        result = "OPTIONAL CRITERION NOT SATISFIED";
+                    }
+                } else {
+                    result = "NOT ELIGIBLE";
+                }
+
+                String requirement = criterion.getOperator().name() + " " + criterion.getExpectedValue();
+                
+                eligibilityDetails.add(new com.infosys.subsidy.dto.EligibilityScoreDetailsDTO(criterion.getCriterionName(), actualVal, requirement, result, maxPoints, points, !criterion.isMandatory()));
+            }
+        }
+        dto.setEligibilityDetails(eligibilityDetails);
+
         return dto;
     }
 
@@ -234,9 +299,13 @@ public class VerificationService {
 
         VerificationLevel targetLevel = getVerificationLevelFromRole(officer.getRole());
         
+        ApplicationStatus expectedStatus = (targetLevel == VerificationLevel.LEVEL_3) 
+                ? ApplicationStatus.ESCALATED 
+                : ApplicationStatus.PENDING_VERIFICATION;
+        
         List<Application> pendingApplications = applicationRepository.findByCurrentVerificationLevelAndStatus(
                 targetLevel, 
-                ApplicationStatus.PENDING_VERIFICATION
+                expectedStatus
         );
 
         return pendingApplications.stream().map(app -> {
@@ -262,6 +331,104 @@ public class VerificationService {
                     app.getRemarks()
             );
         }).collect(Collectors.toList());
+    }
+
+    // =====================================================
+    // LEVEL 2 ELIGIBILITY VERIFICATION
+    // =====================================================
+    
+    @Transactional
+    public Application verifyEligibility(Long applicationId, com.infosys.subsidy.dto.EligibilityVerificationRequest request) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User officer = userRepository.findByEmail(email).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
+        
+        if (!officer.isActive() || officer.getRole() != UserRole.LEVEL_2_OFFICER) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Unauthorized for Level 2 verification");
+        }
+
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Application not found with ID: " + applicationId));
+
+        if (application.getStatus() != ApplicationStatus.PENDING_VERIFICATION || application.getCurrentVerificationLevel() != VerificationLevel.LEVEL_2) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Application is not ready for Level 2 eligibility verification");
+        }
+        
+        VerificationLevel currentLevel = application.getCurrentVerificationLevel();
+        VerificationLevel nextLevel = verificationRoutingService.getNextLevel(currentLevel, application.getVerificationRoute());
+
+        VerificationHistory history = new VerificationHistory();
+        history.setApplicationId(application.getId());
+        history.setOfficerId(officer.getId());
+        history.setOfficerName(officer.getName());
+        history.setOfficerRole(officer.getRole().name());
+        history.setVerificationLevel(currentLevel.name());
+        history.setActionTimestamp(LocalDateTime.now());
+        
+        if ("VERIFIED".equalsIgnoreCase(request.getAction())) {
+            history.setAction("ELIGIBILITY_VERIFIED");
+            history.setRemarks(request.getRemarks() != null ? request.getRemarks() : "Eligibility verified");
+            
+            if (nextLevel == null || currentLevel == VerificationLevel.FINAL_APPROVAL) { 
+                application.setStatus(ApplicationStatus.APPROVED);
+                application.setCurrentVerificationLevel(null);
+            } else {
+                application.setCurrentVerificationLevel(nextLevel);
+                application.setStatus(ApplicationStatus.PENDING_VERIFICATION);
+                LocalDateTime assignedAt = LocalDateTime.now();
+                application.setVerificationAssignedAt(assignedAt);
+                application.setVerificationDueDate(assignedAt.plusDays(3));
+            }
+        } else {
+            history.setAction("REJECTED");
+            history.setRemarks("Eligibility Rejected: " + request.getRemarks());
+            application.setStatus(ApplicationStatus.REJECTED);
+            application.setCurrentVerificationLevel(null);
+        }
+        
+        verificationHistoryRepository.save(history);
+        return applicationRepository.save(application);
+    }
+
+    // =====================================================
+    // RETURN TO APPLICANT (LEVEL 2)
+    // =====================================================
+
+    @Transactional
+    public Application returnToApplicant(Long applicationId, VerificationRequest request) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User officer = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
+
+        if (!officer.isActive() || officer.getRole() != UserRole.LEVEL_2_OFFICER) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Unauthorized. Only Level 2 officers can return applications to the applicant.");
+        }
+
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Application not found with ID: " + applicationId));
+
+        if (application.getStatus() != ApplicationStatus.PENDING_VERIFICATION || application.getCurrentVerificationLevel() != VerificationLevel.LEVEL_2) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Application is not ready for Level 2 verification");
+        }
+
+        // Add history
+        VerificationHistory history = new VerificationHistory();
+        history.setApplicationId(application.getId());
+        history.setOfficerId(officer.getId());
+        history.setOfficerName(officer.getName());
+        history.setOfficerRole(officer.getRole().name());
+        history.setVerificationLevel(VerificationLevel.LEVEL_2.name());
+        history.setAction("RETURNED_TO_APPLICANT");
+        history.setRemarks(request.getRemarks() != null ? request.getRemarks() : "Application returned for additional documents");
+        history.setActionTimestamp(LocalDateTime.now());
+        verificationHistoryRepository.save(history);
+
+        // Update application
+        application.setStatus(ApplicationStatus.RETURNED_TO_APPLICANT);
+        // Leave currentVerificationLevel intact or null? 
+        // According to instructions: "Remove it from the Level 2 active verification queue."
+        // Our queue fetches where status is PENDING_VERIFICATION.
+        
+        return applicationRepository.save(application);
     }
 
     private VerificationLevel getVerificationLevelFromRole(UserRole role) {

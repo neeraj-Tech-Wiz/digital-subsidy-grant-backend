@@ -19,6 +19,8 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+
 /**
  * Initializes default government subsidy and grant schemes upon application startup
  * if no schemes exist in the database.
@@ -50,7 +52,7 @@ public class SampleDataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        seedAdmin();
+        seedUsers();
         boolean needsData = false;
         try {
             if (schemeService.getSchemeByCode("SCH-PM-KISAN-01") == null) {
@@ -65,7 +67,7 @@ public class SampleDataInitializer implements CommandLineRunner {
         }
     }
 
-    private void seedAdmin() {
+    private void seedUsers() {
         if (!userRepository.existsByRole(UserRole.ADMIN)) {
             User admin = new User();
             admin.setName(adminName);
@@ -74,6 +76,16 @@ public class SampleDataInitializer implements CommandLineRunner {
             admin.setRole(UserRole.ADMIN);
             admin.setActive(true);
             userRepository.save(admin);
+        }
+
+        if (!userRepository.existsByRole(UserRole.GRANT_OFFICER)) {
+            User officer = new User();
+            officer.setName("Finance Officer");
+            officer.setEmail("finance@infosys.com");
+            officer.setPassword(passwordEncoder.encode("finance123"));
+            officer.setRole(UserRole.GRANT_OFFICER);
+            officer.setActive(true);
+            userRepository.save(officer);
         }
     }
 
@@ -84,8 +96,8 @@ public class SampleDataInitializer implements CommandLineRunner {
                 "SCH-PM-KISAN-01",
                 "PM Kisan Samman Nidhi",
                 "Direct income support of Rs. 6,000 per year in three equal installments to small and marginal farmer families.",
-                6000.0,
-                50000000.0,
+                BigDecimal.valueOf(6000.0),
+                BigDecimal.valueOf(50000000.0),
                 SchemeStatus.ACTIVE,
                 "All India",
                 BeneficiaryCategory.FARMER
@@ -119,8 +131,8 @@ public class SampleDataInitializer implements CommandLineRunner {
                 "SCH-PMEGP-02",
                 "Prime Minister Employment Generation Programme",
                 "Credit-linked subsidy programme to generate self-employment opportunities in rural and urban areas.",
-                250000.0,
-                100000000.0,
+                BigDecimal.valueOf(250000.0),
+                BigDecimal.valueOf(100000000.0),
                 SchemeStatus.ACTIVE,
                 "All India",
                 BeneficiaryCategory.WOMEN_ENTREPRENEUR
@@ -149,8 +161,8 @@ public class SampleDataInitializer implements CommandLineRunner {
                 "SCH-SOLAR-03",
                 "PM Surya Ghar Muft Bijli Yojana",
                 "Subsidy for residential consumers to install solar rooftop systems for clean renewable energy.",
-                78000.0,
-                20000000.0,
+                BigDecimal.valueOf(78000.0),
+                BigDecimal.valueOf(20000000.0),
                 SchemeStatus.ACTIVE,
                 "All India",
                 BeneficiaryCategory.GENERAL
@@ -175,8 +187,8 @@ public class SampleDataInitializer implements CommandLineRunner {
                 "SCH-PMMVY-04",
                 "Pradhan Mantri Matru Vandana Yojana",
                 "Maternity benefit cash incentive of Rs. 5,000 for pregnant women and lactating mothers for first living child.",
-                5000.0,
-                15000000.0,
+                BigDecimal.valueOf(5000.0),
+                BigDecimal.valueOf(15000000.0),
                 SchemeStatus.ACTIVE,
                 "All India",
                 BeneficiaryCategory.BPL_FAMILY

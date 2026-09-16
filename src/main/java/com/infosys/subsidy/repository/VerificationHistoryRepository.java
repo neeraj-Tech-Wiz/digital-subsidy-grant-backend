@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface VerificationHistoryRepository extends JpaRepository<VerificationHistory, Long> {
     List<VerificationHistory> findByApplicationIdOrderByActionTimestampDesc(Long applicationId);
+    List<VerificationHistory> findByApplicationIdOrderByActionTimestampAsc(Long applicationId);
 }

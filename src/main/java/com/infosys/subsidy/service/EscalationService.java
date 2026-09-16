@@ -97,22 +97,11 @@ public class EscalationService {
 
 
         // ==========================================
-        // GET NEXT LEVEL FROM CENTRAL ROUTING SERVICE
-        // ==========================================
-
-        VerificationLevel nextLevel =
-                verificationRoutingService.getNextLevel(
-                        currentLevel,
-                        verificationRoute
-                );
-
-
-        // ==========================================
-        // NO NEXT LEVEL AVAILABLE
+        // NO NEXT LEVEL AVAILABLE OR MISSING STATE
         // ESCALATE FOR ADMIN ATTENTION
         // ==========================================
 
-        if (nextLevel == null) {
+        if (currentLevel == VerificationLevel.LEVEL_3 || currentLevel == VerificationLevel.FINAL_APPROVAL) {
 
             application.setStatus(
                     ApplicationStatus.ESCALATED
@@ -128,21 +117,20 @@ public class EscalationService {
 
             applicationRepository.save(application);
 
-
-
             return;
         }
 
+        // ==========================================
+        // ESCALATE TO LEVEL_3 (ESCALATION OFFICER)
+        // ==========================================
 
-        // ==========================================
-        // ESCALATE TO NEXT LEVEL
-        // ==========================================
+        VerificationLevel nextLevel = VerificationLevel.LEVEL_3;
 
         LocalDateTime now =
                 LocalDateTime.now();
 
         application.setStatus(
-                ApplicationStatus.PENDING_VERIFICATION
+                ApplicationStatus.ESCALATED
         );
 
         application.setCurrentVerificationLevel(

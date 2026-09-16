@@ -91,4 +91,30 @@ public class VerificationController {
         ApplicationDocument result = applicationDocumentService.verifyDocument(applicationId, documentId, request);
         return ResponseEntity.ok(result);
     }
+
+    // ==========================================
+    // VERIFY ELIGIBILITY (LEVEL 2)
+    // ==========================================
+
+    @PutMapping("/applications/{applicationId}/eligibility")
+    public ResponseEntity<Application> verifyEligibility(
+            @PathVariable Long applicationId,
+            @RequestBody com.infosys.subsidy.dto.EligibilityVerificationRequest request) {
+
+        Application application = verificationService.verifyEligibility(applicationId, request);
+        return ResponseEntity.ok(application);
+    }
+    
+    // ==========================================
+    // RETURN TO APPLICANT (LEVEL 2)
+    // ==========================================
+
+    @PutMapping("/applications/{applicationId}/return-to-applicant")
+    public ResponseEntity<Application> returnToApplicant(
+            @PathVariable Long applicationId,
+            @RequestBody VerificationRequest request) {
+
+        Application application = verificationService.returnToApplicant(applicationId, request);
+        return ResponseEntity.ok(application);
+    }
 }

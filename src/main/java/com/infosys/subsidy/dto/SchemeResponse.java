@@ -7,6 +7,7 @@ import com.infosys.subsidy.enums.SchemeStatus;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.math.BigDecimal;
 
 public class SchemeResponse {
 
@@ -14,10 +15,10 @@ public class SchemeResponse {
     private String schemeCode;
     private String schemeName;
     private String description;
-    private double grantAmount;
-    private double totalBudget;
-    private double disbursedAmount;
-    private double remainingBudget;
+    private BigDecimal grantAmount;
+    private BigDecimal totalBudget;
+    private BigDecimal disbursedAmount;
+    private BigDecimal remainingBudget;
     private SchemeStatus status;
     private String applicableRegion;
     private BeneficiaryCategory beneficiaryCategory;
@@ -94,35 +95,35 @@ public class SchemeResponse {
         this.description = description;
     }
 
-    public double getGrantAmount() {
+    public BigDecimal getGrantAmount() {
         return grantAmount;
     }
 
-    public void setGrantAmount(double grantAmount) {
+    public void setGrantAmount(BigDecimal grantAmount) {
         this.grantAmount = grantAmount;
     }
 
-    public double getTotalBudget() {
+    public BigDecimal getTotalBudget() {
         return totalBudget;
     }
 
-    public void setTotalBudget(double totalBudget) {
+    public void setTotalBudget(BigDecimal totalBudget) {
         this.totalBudget = totalBudget;
     }
 
-    public double getDisbursedAmount() {
+    public BigDecimal getDisbursedAmount() {
         return disbursedAmount;
     }
 
-    public void setDisbursedAmount(double disbursedAmount) {
+    public void setDisbursedAmount(BigDecimal disbursedAmount) {
         this.disbursedAmount = disbursedAmount;
     }
 
-    public double getRemainingBudget() {
+    public BigDecimal getRemainingBudget() {
         return remainingBudget;
     }
 
-    public void setRemainingBudget(double remainingBudget) {
+    public void setRemainingBudget(BigDecimal remainingBudget) {
         this.remainingBudget = remainingBudget;
     }
 

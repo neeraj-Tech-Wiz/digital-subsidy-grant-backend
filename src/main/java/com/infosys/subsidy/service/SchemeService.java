@@ -34,6 +34,7 @@ public interface SchemeService {
     EligibilityCriteria toggleCriterionStatus(Long schemeId, Long criterionId);
     List<EligibilityCriteria> getCriteriaForScheme(Long schemeId);
     List<EligibilityCriteria> getActiveCriteriaForScheme(Long schemeId);
+    java.util.List<com.infosys.subsidy.entity.SchemeRequiredDocument> getActiveSchemeDocuments(Long schemeId);
 
     // Budget and Statistics
     Scheme recordDisbursement(Long schemeId, double amount);

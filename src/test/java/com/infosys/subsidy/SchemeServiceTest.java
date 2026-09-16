@@ -16,6 +16,8 @@ import com.infosys.subsidy.repository.SchemeRepository;
 import com.infosys.subsidy.service.SchemeService;
 import com.infosys.subsidy.service.SchemeServiceImpl;
 
+import java.math.BigDecimal;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,6 +40,9 @@ class SchemeServiceTest {
     @Mock
     private EligibilityCriteriaRepository criteriaRepository;
 
+    @Mock
+    private com.infosys.subsidy.repository.SchemeRequiredDocumentRepository documentRepository;
+
     private SchemeService schemeService;
 
 
@@ -46,7 +51,8 @@ class SchemeServiceTest {
 
         schemeService = new SchemeServiceImpl(
                 schemeRepository,
-                criteriaRepository
+                criteriaRepository,
+                documentRepository
         );
     }
 
@@ -62,8 +68,8 @@ class SchemeServiceTest {
                 "SCH-TEST-01",
                 "Test Scheme",
                 "Description of test scheme",
-                10000.0,
-                500000.0,
+                BigDecimal.valueOf(10000.0),
+                BigDecimal.valueOf(500000.0),
                 SchemeStatus.DRAFT,
                 "All India",
                 BeneficiaryCategory.FARMER
@@ -93,8 +99,8 @@ class SchemeServiceTest {
                                 "SCH-TEST-01",
                                 "Test Scheme",
                                 "Description of test scheme",
-                                10000.0,
-                                500000.0,
+                                BigDecimal.valueOf(10000.0),
+                                BigDecimal.valueOf(500000.0),
                                 SchemeStatus.DRAFT,
                                 "All India",
                                 BeneficiaryCategory.FARMER
@@ -116,12 +122,12 @@ class SchemeServiceTest {
         );
 
         assertEquals(
-                10000.0,
+                BigDecimal.valueOf(10000.0),
                 created.getGrantAmount()
         );
 
         assertEquals(
-                500000.0,
+                BigDecimal.valueOf(500000.0),
                 created.getTotalBudget()
         );
 
@@ -141,8 +147,8 @@ class SchemeServiceTest {
                 "SCH-DUP-01",
                 "Unique Name",
                 "Desc",
-                5000.0,
-                50000.0,
+                BigDecimal.valueOf(5000.0),
+                BigDecimal.valueOf(50000.0),
                 SchemeStatus.DRAFT,
                 "All India",
                 BeneficiaryCategory.GENERAL
@@ -169,8 +175,8 @@ class SchemeServiceTest {
                 "SCH-BAD-01",
                 "Bad Budget Scheme",
                 "Desc",
-                50000.0,
-                10000.0,
+                BigDecimal.valueOf(50000.0),
+                BigDecimal.valueOf(10000.0),
                 SchemeStatus.DRAFT,
                 "All India",
                 BeneficiaryCategory.GENERAL
@@ -195,8 +201,8 @@ class SchemeServiceTest {
                 "SCH-01",
                 "Scheme 1",
                 "Desc",
-                5000.0,
-                50000.0,
+                BigDecimal.valueOf(5000.0),
+                BigDecimal.valueOf(50000.0),
                 SchemeStatus.DRAFT,
                 "All India",
                 BeneficiaryCategory.FARMER
@@ -290,8 +296,8 @@ class SchemeServiceTest {
                 "SCH-01",
                 "Scheme 1",
                 "Desc",
-                5000.0,
-                50000.0,
+                BigDecimal.valueOf(5000.0),
+                BigDecimal.valueOf(50000.0),
                 SchemeStatus.DRAFT,
                 "All India",
                 BeneficiaryCategory.FARMER
@@ -381,8 +387,8 @@ class SchemeServiceTest {
                 "SCH-01",
                 "Scheme 1",
                 "Desc",
-                5000.0,
-                50000.0,
+                BigDecimal.valueOf(5000.0),
+                BigDecimal.valueOf(50000.0),
                 SchemeStatus.DRAFT,
                 "All India",
                 BeneficiaryCategory.FARMER
@@ -415,8 +421,8 @@ class SchemeServiceTest {
                 "SCH-01",
                 "Scheme 1",
                 "Desc",
-                5000.0,
-                50000.0,
+                BigDecimal.valueOf(5000.0),
+                BigDecimal.valueOf(50000.0),
                 SchemeStatus.ACTIVE,
                 "All India",
                 BeneficiaryCategory.FARMER
@@ -441,12 +447,12 @@ class SchemeServiceTest {
 
 
         assertEquals(
-                15000.0,
+                BigDecimal.valueOf(15000.0),
                 result.getDisbursedAmount()
         );
 
         assertEquals(
-                35000.0,
+                BigDecimal.valueOf(35000.0),
                 result.getRemainingBudget()
         );
     }
@@ -464,8 +470,8 @@ class SchemeServiceTest {
                 "SCH-01",
                 "Scheme 1",
                 "Desc",
-                5000.0,
-                50000.0,
+                BigDecimal.valueOf(5000.0),
+                BigDecimal.valueOf(50000.0),
                 SchemeStatus.ACTIVE,
                 "All India",
                 BeneficiaryCategory.FARMER

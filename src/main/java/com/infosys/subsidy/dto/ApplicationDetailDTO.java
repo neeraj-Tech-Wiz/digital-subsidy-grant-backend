@@ -35,6 +35,8 @@ public class ApplicationDetailDTO {
 
     // Sub-objects
     private List<ApplicationDocumentReviewDTO> documents;
+    private List<EligibilityScoreDetailsDTO> eligibilityDetails;
+    private List<VerificationHistoryDTO> verificationHistory;
 
     public ApplicationDetailDTO() {}
 
@@ -94,4 +96,10 @@ public class ApplicationDetailDTO {
 
     public List<ApplicationDocumentReviewDTO> getDocuments() { return documents; }
     public void setDocuments(List<ApplicationDocumentReviewDTO> documents) { this.documents = documents; }
+
+    public List<EligibilityScoreDetailsDTO> getEligibilityDetails() { return eligibilityDetails; }
+    public void setEligibilityDetails(List<EligibilityScoreDetailsDTO> eligibilityDetails) { this.eligibilityDetails = eligibilityDetails; }
+
+    public List<VerificationHistoryDTO> getVerificationHistory() { return verificationHistory; }
+    public void setVerificationHistory(List<VerificationHistoryDTO> verificationHistory) { this.verificationHistory = verificationHistory; }
 }

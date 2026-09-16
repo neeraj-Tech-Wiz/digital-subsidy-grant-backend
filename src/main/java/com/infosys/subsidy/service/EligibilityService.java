@@ -210,38 +210,37 @@ public class EligibilityService {
             return false;
         }
 
+        // Normalize underscores and semantic synonyms
+        String normalizedActual = actual.trim().replace("_", " ").toUpperCase();
+        String normalizedExpected = expected.trim().replace("_", " ").toUpperCase();
+
+        if (normalizedActual.equals("HIGHER EDUCATION")) {
+            normalizedActual = "UNDERGRADUATE";
+        }
+        if (normalizedExpected.equals("HIGHER EDUCATION")) {
+            normalizedExpected = "UNDERGRADUATE";
+        }
 
         // =====================================================
         // EQUAL
         // =====================================================
 
         if (operator == Operator.EQUAL) {
-
-            return actual.trim()
-                    .equalsIgnoreCase(
-                            expected.trim()
-                    );
+            return normalizedActual.equalsIgnoreCase(normalizedExpected);
         }
-
 
         // =====================================================
         // IN
-        //
-        // Example:
-        // FARMER, STUDENT, GENERAL
         // =====================================================
 
         if (operator == Operator.IN) {
-
-            String[] values =
-                    expected.split(",");
-
+            String[] values = expected.split(",");
             for (String value : values) {
-
-                if (actual.trim()
-                        .equalsIgnoreCase(
-                                value.trim())) {
-
+                String normalizedValue = value.trim().replace("_", " ").toUpperCase();
+                if (normalizedValue.equals("HIGHER EDUCATION")) {
+                    normalizedValue = "UNDERGRADUATE";
+                }
+                if (normalizedActual.equalsIgnoreCase(normalizedValue)) {
                     return true;
                 }
             }

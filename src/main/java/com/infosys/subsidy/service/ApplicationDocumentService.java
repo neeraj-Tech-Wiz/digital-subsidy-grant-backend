@@ -16,6 +16,8 @@ import com.infosys.subsidy.repository.ApplicationRepository;
 import com.infosys.subsidy.repository.BeneficiaryRepository;
 import com.infosys.subsidy.repository.SchemeRequiredDocumentRepository;
 import com.infosys.subsidy.repository.UserRepository;
+import com.infosys.subsidy.repository.VerificationHistoryRepository;
+import com.infosys.subsidy.entity.VerificationHistory;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -37,6 +39,7 @@ public class ApplicationDocumentService {
     private final DocumentStorageService documentStorageService;
     private final UserRepository userRepository;
     private final BeneficiaryRepository beneficiaryRepository;
+    private final VerificationHistoryRepository verificationHistoryRepository;
 
     public ApplicationDocumentService(
             ApplicationDocumentRepository applicationDocumentRepository,
@@ -44,7 +47,8 @@ public class ApplicationDocumentService {
             SchemeRequiredDocumentRepository schemeRequiredDocumentRepository,
             DocumentStorageService documentStorageService,
             UserRepository userRepository,
-            BeneficiaryRepository beneficiaryRepository) {
+            BeneficiaryRepository beneficiaryRepository,
+            VerificationHistoryRepository verificationHistoryRepository) {
 
         this.applicationDocumentRepository = applicationDocumentRepository;
         this.applicationRepository = applicationRepository;
@@ -52,6 +56,7 @@ public class ApplicationDocumentService {
         this.documentStorageService = documentStorageService;
         this.userRepository = userRepository;
         this.beneficiaryRepository = beneficiaryRepository;
+        this.verificationHistoryRepository = verificationHistoryRepository;
     }
 
 
@@ -277,7 +282,26 @@ public class ApplicationDocumentService {
         document.setVerifiedAt(LocalDateTime.now());
         document.setVerifiedBy(officer.getId());
 
-        return applicationDocumentRepository.save(document);
+        ApplicationDocument savedDoc = applicationDocumentRepository.save(document);
+
+        VerificationHistory history = new VerificationHistory();
+        history.setApplicationId(application.getId());
+        history.setOfficerId(officer.getId());
+        history.setOfficerName(officer.getName());
+        history.setOfficerRole(officer.getRole().name());
+        history.setVerificationLevel(currentLevel.name());
+        
+        if ("VERIFIED".equalsIgnoreCase(request.getAction())) {
+            history.setAction("DOCUMENT_VERIFIED");
+            history.setRemarks("Verified " + document.getDocumentName() + ": " + (request.getRemarks() != null ? request.getRemarks() : "No remarks"));
+        } else {
+            history.setAction("DOCUMENT_REJECTED");
+            history.setRemarks("Rejected " + document.getDocumentName() + ": " + (request.getRemarks() != null ? request.getRemarks() : "No remarks"));
+        }
+        history.setActionTimestamp(LocalDateTime.now());
+        verificationHistoryRepository.save(history);
+
+        return savedDoc;
     }
     
     // ============================================================

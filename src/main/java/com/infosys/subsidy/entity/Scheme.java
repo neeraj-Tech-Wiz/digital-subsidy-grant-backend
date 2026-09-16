@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.math.BigDecimal;
 
 /**
  * Scheme Entity.
@@ -41,15 +42,15 @@ public class Scheme implements Serializable {
     private String description;
 
     @Positive(message = "Grant amount must be greater than zero")
-    @Column(name = "grant_amount", nullable = false)
-    private double grantAmount;
+    @Column(name = "grant_amount", nullable = false, precision = 15, scale = 2)
+    private BigDecimal grantAmount;
 
     @Positive(message = "Total budget must be greater than zero")
-    @Column(name = "total_budget", nullable = false)
-    private double totalBudget;
+    @Column(name = "total_budget", nullable = false, precision = 15, scale = 2)
+    private BigDecimal totalBudget;
 
-    @Column(name = "disbursed_amount", nullable = false)
-    private double disbursedAmount = 0.0;
+    @Column(name = "disbursed_amount", nullable = false, precision = 15, scale = 2)
+    private BigDecimal disbursedAmount = BigDecimal.ZERO;
 
     @NotNull(message = "Scheme status is required")
     @Enumerated(EnumType.STRING)
@@ -95,19 +96,19 @@ public class Scheme implements Serializable {
         this.status = SchemeStatus.DRAFT;
         this.beneficiaryCategory = BeneficiaryCategory.GENERAL;
         this.applicableRegion = "All India";
-        this.disbursedAmount = 0.0;
+        this.disbursedAmount = BigDecimal.ZERO;
     }
 
     public Scheme(Long id, String schemeCode, String schemeName, String description,
-                  double grantAmount, double totalBudget, SchemeStatus status,
+                  BigDecimal grantAmount, BigDecimal totalBudget, SchemeStatus status,
                   String applicableRegion, BeneficiaryCategory beneficiaryCategory) {
         this();
         this.id = id;
         this.schemeCode = schemeCode;
         this.schemeName = schemeName;
         this.description = description;
-        this.grantAmount = grantAmount;
-        this.totalBudget = totalBudget;
+        this.grantAmount = grantAmount != null ? grantAmount : BigDecimal.ZERO;
+        this.totalBudget = totalBudget != null ? totalBudget : BigDecimal.ZERO;
         this.status = status != null ? status : SchemeStatus.DRAFT;
         this.applicableRegion = (applicableRegion != null && !applicableRegion.trim().isEmpty()) ? applicableRegion : "All India";
         this.beneficiaryCategory = beneficiaryCategory != null ? beneficiaryCategory : BeneficiaryCategory.GENERAL;
@@ -143,8 +144,9 @@ public class Scheme implements Serializable {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public double getRemainingBudget() {
-        return Math.max(0.0, this.totalBudget - this.disbursedAmount);
+    public BigDecimal getRemainingBudget() {
+        BigDecimal remaining = this.totalBudget.subtract(this.disbursedAmount);
+        return remaining.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : remaining;
     }
 
     public int getTotalCriteriaWeight() {
@@ -193,27 +195,27 @@ public class Scheme implements Serializable {
         this.description = description;
     }
 
-    public double getGrantAmount() {
+    public BigDecimal getGrantAmount() {
         return grantAmount;
     }
 
-    public void setGrantAmount(double grantAmount) {
+    public void setGrantAmount(BigDecimal grantAmount) {
         this.grantAmount = grantAmount;
     }
 
-    public double getTotalBudget() {
+    public BigDecimal getTotalBudget() {
         return totalBudget;
     }
 
-    public void setTotalBudget(double totalBudget) {
+    public void setTotalBudget(BigDecimal totalBudget) {
         this.totalBudget = totalBudget;
     }
 
-    public double getDisbursedAmount() {
+    public BigDecimal getDisbursedAmount() {
         return disbursedAmount;
     }
 
-    public void setDisbursedAmount(double disbursedAmount) {
+    public void setDisbursedAmount(BigDecimal disbursedAmount) {
         this.disbursedAmount = disbursedAmount;
     }
 

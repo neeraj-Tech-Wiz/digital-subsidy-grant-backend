@@ -13,21 +13,22 @@ public class VerificationRoutingService {
     // =====================================================
 
     public VerificationRoute determineRoute(
-            int eligibilityScore,
+            int actualScore,
+            int maxScore,
             double grantAmount) {
+
+        double scorePercentage = 0.0;
+        if (maxScore > 0) {
+            scorePercentage = ((double) actualScore / maxScore) * 100;
+        }
 
         // ==========================================
         // SIMPLE ROUTE
         //
-        // Score >= 90
-        // AND Grant <= 50,000
-        //
-        // LEVEL_1 → FINAL_APPROVAL
+        // Score Percentage >= 90%
         // ==========================================
 
-        if (eligibilityScore >= 90
-                && grantAmount <= 50000) {
-
+        if (scorePercentage >= 90) {
             return VerificationRoute.SIMPLE;
         }
 
@@ -35,27 +36,10 @@ public class VerificationRoutingService {
         // ==========================================
         // STANDARD ROUTE
         //
-        // Score >= 75
-        // AND Grant <= 2,00,000
-        //
-        // LEVEL_1 → LEVEL_2 → FINAL_APPROVAL
+        // Score Percentage < 90%
         // ==========================================
 
-        if (eligibilityScore >= 75
-                && grantAmount <= 200000) {
-
-            return VerificationRoute.STANDARD;
-        }
-
-
-        // ==========================================
-        // HIGH VALUE ROUTE
-        //
-        // LEVEL_1 → LEVEL_2 → LEVEL_3
-        // → FINAL_APPROVAL
-        // ==========================================
-
-        return VerificationRoute.HIGH_VALUE;
+        return VerificationRoute.STANDARD;
     }
 
 
@@ -111,31 +95,8 @@ public class VerificationRoutingService {
                         default ->
                                 null;
                     };
-
-
-            // ======================================
-            // HIGH VALUE
-            //
-            // LEVEL_1 → LEVEL_2 → LEVEL_3
-            // → FINAL_APPROVAL
-            // ======================================
-
-            case HIGH_VALUE ->
-
-                    switch (currentLevel) {
-
-                        case LEVEL_1 ->
-                                VerificationLevel.LEVEL_2;
-
-                        case LEVEL_2 ->
-                                VerificationLevel.LEVEL_3;
-
-                        case LEVEL_3 ->
-                                VerificationLevel.FINAL_APPROVAL;
-
-                        default ->
-                                null;
-                    };
+            default ->
+                    null;
         };
     }
 
@@ -159,9 +120,9 @@ public class VerificationRoutingService {
 
             case STANDARD ->
                     "Standard verification: Level 1 → Level 2 → Final Approval";
-
-            case HIGH_VALUE ->
-                    "High-value verification: Level 1 → Level 2 → Level 3 → Final Approval";
+            
+            default ->
+                    "Legacy or undetermined verification route";
         };
     }
 }

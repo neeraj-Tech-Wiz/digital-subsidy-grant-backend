@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.List;
+import java.math.BigDecimal;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -45,12 +46,12 @@ class SchemeControllerTest {
     void testCreateScheme_Endpoint() throws Exception {
         SchemeRequest request = new SchemeRequest(
                 "SCH-TEST-01", "Kisan Support", "Agriculture grant",
-                6000.0, 5000000.0, SchemeStatus.ACTIVE, "All India", BeneficiaryCategory.FARMER
+                BigDecimal.valueOf(6000.0), BigDecimal.valueOf(5000000.0), SchemeStatus.ACTIVE, "All India", BeneficiaryCategory.FARMER
         );
 
         Scheme mockScheme = new Scheme(
                 1L, "SCH-TEST-01", "Kisan Support", "Agriculture grant",
-                6000.0, 5000000.0, SchemeStatus.ACTIVE, "All India", BeneficiaryCategory.FARMER
+                BigDecimal.valueOf(6000.0), BigDecimal.valueOf(5000000.0), SchemeStatus.ACTIVE, "All India", BeneficiaryCategory.FARMER
         );
 
         when(schemeService.createScheme(any(SchemeRequest.class))).thenReturn(mockScheme);
@@ -66,7 +67,7 @@ class SchemeControllerTest {
 
     @Test
     void testGetAllSchemes_Endpoint() throws Exception {
-        Scheme s1 = new Scheme(1L, "SCH-01", "Scheme One", "Desc 1", 5000.0, 50000.0, SchemeStatus.ACTIVE, "All India", BeneficiaryCategory.GENERAL);
+        Scheme s1 = new Scheme(1L, "SCH-01", "Scheme One", "Desc 1", BigDecimal.valueOf(5000.0), BigDecimal.valueOf(50000.0), SchemeStatus.ACTIVE, "All India", BeneficiaryCategory.GENERAL);
         when(schemeService.getAllSchemes()).thenReturn(List.of(s1));
 
         mockMvc.perform(get("/api/schemes"))
@@ -76,7 +77,7 @@ class SchemeControllerTest {
 
     @Test
     void testGetSchemeById_Endpoint() throws Exception {
-        Scheme s1 = new Scheme(1L, "SCH-01", "Scheme One", "Desc 1", 5000.0, 50000.0, SchemeStatus.ACTIVE, "All India", BeneficiaryCategory.GENERAL);
+        Scheme s1 = new Scheme(1L, "SCH-01", "Scheme One", "Desc 1", BigDecimal.valueOf(5000.0), BigDecimal.valueOf(50000.0), SchemeStatus.ACTIVE, "All India", BeneficiaryCategory.GENERAL);
         when(schemeService.getSchemeById(1L)).thenReturn(s1);
 
         mockMvc.perform(get("/api/schemes/1"))

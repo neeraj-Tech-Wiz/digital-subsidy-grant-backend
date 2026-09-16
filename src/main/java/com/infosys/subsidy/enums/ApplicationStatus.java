@@ -18,5 +18,9 @@ public enum ApplicationStatus {
 
     APPROVED,
 
-    REJECTED
+    REJECTED,
+
+    RETURNED_TO_APPLICANT,
+    
+    GRANT_DISBURSED
 }

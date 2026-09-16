@@ -43,11 +43,13 @@ build/
 .env
 .env.*
 *.env
+!.env.example
 
 # Local application configuration
 application-local.properties
 application-local.yml
 application-local.yaml
+!application-local.properties.example
 
 # ==============================
 # Logs

@@ -5,7 +5,7 @@ import com.infosys.subsidy.enums.SchemeStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
-
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,11 +21,11 @@ public class SchemeRequest {
 
     @NotNull(message = "Grant amount is required")
     @Positive(message = "Grant amount must be greater than zero")
-    private Double grantAmount;
+    private BigDecimal grantAmount;
 
     @NotNull(message = "Total budget is required")
     @Positive(message = "Total budget must be greater than zero")
-    private Double totalBudget;
+    private BigDecimal totalBudget;
 
     private SchemeStatus status = SchemeStatus.DRAFT;
 
@@ -39,7 +39,7 @@ public class SchemeRequest {
     }
 
     public SchemeRequest(String schemeCode, String schemeName, String description,
-                         Double grantAmount, Double totalBudget, SchemeStatus status,
+                         BigDecimal grantAmount, BigDecimal totalBudget, SchemeStatus status,
                          String applicableRegion, BeneficiaryCategory beneficiaryCategory) {
         this.schemeCode = schemeCode;
         this.schemeName = schemeName;
@@ -76,19 +76,19 @@ public class SchemeRequest {
         this.description = description;
     }
 
-    public Double getGrantAmount() {
+    public BigDecimal getGrantAmount() {
         return grantAmount;
     }
 
-    public void setGrantAmount(Double grantAmount) {
+    public void setGrantAmount(BigDecimal grantAmount) {
         this.grantAmount = grantAmount;
     }
 
-    public Double getTotalBudget() {
+    public BigDecimal getTotalBudget() {
         return totalBudget;
     }
 
-    public void setTotalBudget(Double totalBudget) {
+    public void setTotalBudget(BigDecimal totalBudget) {
         this.totalBudget = totalBudget;
     }
 

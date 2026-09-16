@@ -23,4 +23,6 @@ public interface ApplicationRepository
             com.infosys.subsidy.enums.VerificationLevel level, 
             ApplicationStatus status
     );
+
+    List<Application> findByStatus(ApplicationStatus status);
 }
