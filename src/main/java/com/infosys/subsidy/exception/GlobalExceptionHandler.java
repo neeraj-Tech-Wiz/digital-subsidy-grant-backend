@@ -130,6 +130,24 @@ public class GlobalExceptionHandler {
                 .body(error);
     }
 
+    @ExceptionHandler(ApplicationCooldownException.class)
+    public ResponseEntity<Map<String, Object>> handleCooldown(
+            ApplicationCooldownException exception) {
+        
+        Map<String, Object> error = new HashMap<>();
+        error.put("success", false);
+        error.put("code", "APPLICATION_COOLDOWN_ACTIVE");
+        error.put("message", exception.getMessage());
+        error.put("schemeId", exception.getSchemeId());
+        error.put("rejectedAt", exception.getRejectedAt() != null ? exception.getRejectedAt().toString() : null);
+        error.put("cooldownExpiresAt", exception.getCooldownExpiresAt() != null ? exception.getCooldownExpiresAt().toString() : null);
+        error.put("remainingDays", exception.getRemainingDays());
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(error);
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntimeExceptions(RuntimeException exception) {
         Map<String, Object> error = new HashMap<>();

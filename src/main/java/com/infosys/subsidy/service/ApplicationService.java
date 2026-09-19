@@ -65,6 +65,9 @@ public class ApplicationService {
         this.grantDisbursementRepository = grantDisbursementRepository;
     }
 
+    @org.springframework.beans.factory.annotation.Value("${rejection.cooldown.days:30}")
+    private int cooldownDays;
+
 
     // ============================================================
     // HELPER — Derive the authenticated user from email.
@@ -158,8 +161,29 @@ public class ApplicationService {
 
 
         // ==========================================
+        // 3.5 CHECK COOLDOWN
+        // ==========================================
+
+        applicationRepository.findFirstByBeneficiaryIdAndSchemeIdAndStatusOrderByRejectedAtDesc(beneficiary.getId(), scheme.getId(), ApplicationStatus.REJECTED)
+            .ifPresent(recentApp -> {
+                if (recentApp.getRejectedAt() != null) {
+                    LocalDateTime expiresAt = recentApp.getRejectedAt().plusDays(cooldownDays);
+                    if (LocalDateTime.now().isBefore(expiresAt)) {
+                        long remainingDays = java.time.Duration.between(LocalDateTime.now(), expiresAt).toDays();
+                        if (remainingDays < 1 && LocalDateTime.now().isBefore(expiresAt)) remainingDays = 1; 
+                        
+                        throw new com.infosys.subsidy.exception.ApplicationCooldownException(
+                            "You cannot reapply for this scheme yet because your previous application was rejected.",
+                            scheme.getId(), recentApp.getRejectedAt(), expiresAt, (int) remainingDays);
+                    }
+                }
+            });
+
+
+        // ==========================================
         // 4. GET DYNAMIC ELIGIBILITY DATA
         // ==========================================
+
 
         Map<String, String> eligibilityData =
                 request.getEligibilityData();
@@ -685,5 +709,66 @@ public class ApplicationService {
         myGrants.sort((g1, g2) -> g2.getDisbursedAt().compareTo(g1.getDisbursedAt()));
         
         return myGrants;
+    }
+
+    // ============================================================
+    // GET SCHEME ELIGIBILITY (COOLDOWN)
+    // ============================================================
+    @Transactional(readOnly = true)
+    public com.infosys.subsidy.dto.CooldownStatusDTO getSchemeEligibility(Long schemeId, String authenticatedEmail) {
+        User user = getAuthenticatedUser(authenticatedEmail);
+        Beneficiary beneficiary = getBeneficiaryForUser(user);
+        
+        var dto = new com.infosys.subsidy.dto.CooldownStatusDTO(true, false, null, null, null, null, cooldownDays);
+        
+        applicationRepository.findFirstByBeneficiaryIdAndSchemeIdAndStatusOrderByRejectedAtDesc(beneficiary.getId(), schemeId, ApplicationStatus.REJECTED)
+            .ifPresent(recentApp -> {
+                if (recentApp.getRejectedAt() != null) {
+                    LocalDateTime expiresAt = recentApp.getRejectedAt().plusDays(cooldownDays);
+                    if (LocalDateTime.now().isBefore(expiresAt)) {
+                        long remainingDays = java.time.Duration.between(LocalDateTime.now(), expiresAt).toDays();
+                        if (remainingDays < 1 && LocalDateTime.now().isBefore(expiresAt)) remainingDays = 1;
+                        dto.setCanApply(false);
+                        dto.setCooldownActive(true);
+                        dto.setReason("APPLICATION_COOLDOWN_ACTIVE");
+                        dto.setRejectedAt(recentApp.getRejectedAt());
+                        dto.setCooldownExpiresAt(expiresAt);
+                        dto.setRemainingDays((int) remainingDays);
+                    }
+                }
+            });
+            
+        return dto;
+    }
+
+    // ============================================================
+    // GET ALL ACTIVE COOLDOWNS
+    // ============================================================
+    @Transactional(readOnly = true)
+    public java.util.Map<Long, com.infosys.subsidy.dto.CooldownStatusDTO> getActiveCooldowns(String authenticatedEmail) {
+        User user = getAuthenticatedUser(authenticatedEmail);
+        Beneficiary beneficiary = getBeneficiaryForUser(user);
+        
+        List<Application> rejectedApps = applicationRepository.findByBeneficiaryId(beneficiary.getId()).stream()
+            .filter(app -> app.getStatus() == ApplicationStatus.REJECTED && app.getRejectedAt() != null)
+            .collect(java.util.stream.Collectors.toList());
+            
+        java.util.Map<Long, com.infosys.subsidy.dto.CooldownStatusDTO> map = new java.util.HashMap<>();
+        
+        for (Application app : rejectedApps) {
+            LocalDateTime expiresAt = app.getRejectedAt().plusDays(cooldownDays);
+            if (LocalDateTime.now().isBefore(expiresAt)) {
+                long remainingDays = java.time.Duration.between(LocalDateTime.now(), expiresAt).toDays();
+                if (remainingDays < 1 && LocalDateTime.now().isBefore(expiresAt)) remainingDays = 1;
+                
+                var dto = new com.infosys.subsidy.dto.CooldownStatusDTO(false, true, "APPLICATION_COOLDOWN_ACTIVE", app.getRejectedAt(), expiresAt, (int) remainingDays, cooldownDays);
+                
+                if (!map.containsKey(app.getSchemeId()) || map.get(app.getSchemeId()).getRejectedAt().isBefore(app.getRejectedAt())) {
+                    map.put(app.getSchemeId(), dto);
+                }
+            }
+        }
+        
+        return map;
     }
 }

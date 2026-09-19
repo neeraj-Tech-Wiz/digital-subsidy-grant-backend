@@ -57,6 +57,8 @@ application-local.yaml
 
 *.log
 logs/
+uploads/
+
 
 # ==============================
 # OS generated files

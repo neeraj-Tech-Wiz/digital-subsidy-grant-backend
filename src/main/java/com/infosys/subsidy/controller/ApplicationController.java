@@ -152,4 +152,29 @@ public class ApplicationController {
         List<com.infosys.subsidy.entity.GrantDisbursement> grants = applicationService.getMyGrants(email);
         return ResponseEntity.ok(grants);
     }
+
+    // ============================================================
+    // GET SCHEME ELIGIBILITY (COOLDOWN)
+    // ============================================================
+
+    @GetMapping("/scheme/{schemeId}/eligibility")
+    public ResponseEntity<com.infosys.subsidy.dto.CooldownStatusDTO> getSchemeEligibility(
+            @PathVariable Long schemeId,
+            Authentication authentication) {
+        String email = authentication.getName();
+        com.infosys.subsidy.dto.CooldownStatusDTO dto = applicationService.getSchemeEligibility(schemeId, email);
+        return ResponseEntity.ok(dto);
+    }
+
+    // ============================================================
+    // GET ALL ACTIVE COOLDOWNS
+    // ============================================================
+
+    @GetMapping("/cooldowns")
+    public ResponseEntity<java.util.Map<Long, com.infosys.subsidy.dto.CooldownStatusDTO>> getActiveCooldowns(
+            Authentication authentication) {
+        String email = authentication.getName();
+        java.util.Map<Long, com.infosys.subsidy.dto.CooldownStatusDTO> map = applicationService.getActiveCooldowns(email);
+        return ResponseEntity.ok(map);
+    }
 }

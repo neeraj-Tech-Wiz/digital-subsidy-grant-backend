@@ -133,6 +133,7 @@ public class VerificationService {
         if (!Boolean.TRUE.equals(request.getApproved())) {
             history.setAction("REJECTED");
             application.setStatus(ApplicationStatus.REJECTED);
+            application.setRejectedAt(LocalDateTime.now());
             application.setCurrentVerificationLevel(null);
             application.setVerificationCompletedAt(LocalDateTime.now());
             application.setVerificationDueDate(null);
@@ -382,6 +383,7 @@ public class VerificationService {
             history.setAction("REJECTED");
             history.setRemarks("Eligibility Rejected: " + request.getRemarks());
             application.setStatus(ApplicationStatus.REJECTED);
+            application.setRejectedAt(LocalDateTime.now());
             application.setCurrentVerificationLevel(null);
         }
         

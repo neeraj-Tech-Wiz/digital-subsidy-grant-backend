@@ -62,6 +62,15 @@ public class Application {
     // VERIFICATION TIMESTAMPS
     // ==========================================
 
+    @Column(name = "rejected_at")
+    private LocalDateTime rejectedAt;
+    
+    @jakarta.persistence.Transient
+    private LocalDateTime cooldownExpiresAt;
+    
+    @jakarta.persistence.Transient
+    private Boolean cooldownActive;
+
     @Column(name = "verification_assigned_at")
     private LocalDateTime verificationAssignedAt;
 
@@ -217,5 +226,29 @@ public class Application {
 
         this.verificationCompletedAt =
                 verificationCompletedAt;
+    }
+
+    public LocalDateTime getRejectedAt() {
+        return rejectedAt;
+    }
+
+    public void setRejectedAt(LocalDateTime rejectedAt) {
+        this.rejectedAt = rejectedAt;
+    }
+
+    public LocalDateTime getCooldownExpiresAt() {
+        return cooldownExpiresAt;
+    }
+
+    public void setCooldownExpiresAt(LocalDateTime cooldownExpiresAt) {
+        this.cooldownExpiresAt = cooldownExpiresAt;
+    }
+
+    public Boolean getCooldownActive() {
+        return cooldownActive;
+    }
+
+    public void setCooldownActive(Boolean cooldownActive) {
+        this.cooldownActive = cooldownActive;
     }
 }
