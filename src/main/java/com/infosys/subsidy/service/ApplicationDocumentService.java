@@ -40,6 +40,8 @@ public class ApplicationDocumentService {
     private final UserRepository userRepository;
     private final BeneficiaryRepository beneficiaryRepository;
     private final VerificationHistoryRepository verificationHistoryRepository;
+    private final com.infosys.subsidy.repository.DisbursementPlanRepository disbursementPlanRepository;
+    private final MilestoneComplianceService milestoneComplianceService;
 
     public ApplicationDocumentService(
             ApplicationDocumentRepository applicationDocumentRepository,
@@ -48,7 +50,9 @@ public class ApplicationDocumentService {
             DocumentStorageService documentStorageService,
             UserRepository userRepository,
             BeneficiaryRepository beneficiaryRepository,
-            VerificationHistoryRepository verificationHistoryRepository) {
+            VerificationHistoryRepository verificationHistoryRepository,
+            com.infosys.subsidy.repository.DisbursementPlanRepository disbursementPlanRepository,
+            @org.springframework.context.annotation.Lazy MilestoneComplianceService milestoneComplianceService) {
 
         this.applicationDocumentRepository = applicationDocumentRepository;
         this.applicationRepository = applicationRepository;
@@ -57,6 +61,8 @@ public class ApplicationDocumentService {
         this.userRepository = userRepository;
         this.beneficiaryRepository = beneficiaryRepository;
         this.verificationHistoryRepository = verificationHistoryRepository;
+        this.disbursementPlanRepository = disbursementPlanRepository;
+        this.milestoneComplianceService = milestoneComplianceService;
     }
 
 
@@ -126,17 +132,25 @@ public class ApplicationDocumentService {
                     "Only allowed file types are PDF, JPG, JPEG, PNG");
         }
 
-        // Validate if document type is configured for this scheme
-        List<SchemeRequiredDocument> schemeDocs =
-                schemeRequiredDocumentRepository.findBySchemeIdAndActiveTrue(application.getSchemeId());
-        Optional<SchemeRequiredDocument> matchedConfig = schemeDocs.stream()
-                .filter(doc -> doc.getDocumentType() == documentType)
-                .findFirst();
+        // Validate if document type is configured for this scheme OR if it's a global milestone document
+        String documentName;
+        if (documentType == DocumentType.BANK_PASSBOOK) {
+            documentName = "Bank Passbook (Initial Banking Document)";
+        } else if (documentType == DocumentType.OTHER) {
+            documentName = "Other Documentation";
+        } else {
+            List<SchemeRequiredDocument> schemeDocs =
+                    schemeRequiredDocumentRepository.findBySchemeIdAndActiveTrue(application.getSchemeId());
+            Optional<SchemeRequiredDocument> matchedConfig = schemeDocs.stream()
+                    .filter(doc -> doc.getDocumentType() == documentType)
+                    .findFirst();
 
-        if (matchedConfig.isEmpty()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Document type " + documentType + " is not configured for this scheme");
+            if (matchedConfig.isEmpty()) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Document type " + documentType + " is not configured for this scheme");
+            }
+            documentName = matchedConfig.get().getDocumentName();
         }
 
         // Check if there's already an active uploaded document of same type
@@ -160,7 +174,7 @@ public class ApplicationDocumentService {
         ApplicationDocument document = new ApplicationDocument();
         document.setApplication(application);
         document.setDocumentType(documentType);
-        document.setDocumentName(matchedConfig.get().getDocumentName());
+        document.setDocumentName(documentName);
         document.setOriginalFileName(file.getOriginalFilename());
         document.setFilePath(filePath);
         document.setContentType(contentType);
@@ -300,6 +314,105 @@ public class ApplicationDocumentService {
         }
         history.setActionTimestamp(LocalDateTime.now());
         verificationHistoryRepository.save(history);
+
+        return savedDoc;
+    }
+    
+    // ============================================================
+    // VERIFY MILESTONE DOCUMENT (Module 3 Action)
+    //
+    // Narrowly scoped purely for Stage 1 BANK_PASSBOOK verification.
+    // Exclusively allows GRANT_OFFICER to verify.
+    // ============================================================
+
+    @Transactional
+    public ApplicationDocument verifyMilestonePassbook(
+            Long applicationId,
+            Long documentId,
+            DocumentVerificationRequest request) {
+
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Application not found with ID: " + applicationId));
+
+        ApplicationDocument document = applicationDocumentRepository.findById(documentId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Document not found with ID: " + documentId));
+
+        if (!document.getApplication().getId().equals(applicationId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Document does not belong to the specified application.");
+        }
+        
+        if (document.getDocumentType() != DocumentType.BANK_PASSBOOK) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "This endpoint can only verify Stage 1 BANK_PASSBOOK documents.");
+        }
+
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User officer = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
+
+        if (!officer.isActive()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN, "Officer account is deactivated");
+        }
+
+        if (officer.getRole() != UserRole.GRANT_OFFICER && officer.getRole() != UserRole.ADMIN) {
+             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only Grant Officers can verify milestone financial evidence.");
+        }
+
+        if (document.getDocumentStatus() == DocumentStatus.VERIFIED || document.getDocumentStatus() == DocumentStatus.REJECTED) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Document is already fully processed: " + document.getDocumentStatus());
+        }
+
+        if ("VERIFIED".equalsIgnoreCase(request.getAction())) {
+            document.setDocumentStatus(DocumentStatus.VERIFIED);
+        } else if ("REJECTED".equalsIgnoreCase(request.getAction())) {
+            if (request.getRemarks() == null || request.getRemarks().trim().isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Remarks are mandatory for rejection.");
+            }
+            document.setDocumentStatus(DocumentStatus.REJECTED);
+        } else {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid verify action requested.");
+        }
+
+        document.setRemarks(request.getRemarks());
+        document.setVerifiedAt(LocalDateTime.now());
+        document.setVerifiedBy(officer.getId());
+
+        ApplicationDocument savedDoc = applicationDocumentRepository.save(document);
+
+        VerificationHistory history = new VerificationHistory();
+        history.setApplicationId(application.getId());
+        history.setOfficerId(officer.getId());
+        history.setOfficerName(officer.getName());
+        history.setOfficerRole(officer.getRole().name());
+        history.setVerificationLevel("MILESTONE_STAGE_1");
+        
+        if ("VERIFIED".equalsIgnoreCase(request.getAction())) {
+            history.setAction("BANKING_DOCUMENT_VERIFIED");
+            history.setRemarks("Verified " + document.getDocumentName() + ": " + (request.getRemarks() != null ? request.getRemarks() : "No remarks"));
+        } else {
+            history.setAction("BANKING_DOCUMENT_REJECTED");
+            history.setRemarks("Rejected " + document.getDocumentName() + ": " + (request.getRemarks() != null ? request.getRemarks() : "No remarks"));
+        }
+        history.setActionTimestamp(LocalDateTime.now());
+        verificationHistoryRepository.save(history);
+
+        // Auto-unblock Stage 1 if VERIFIED
+        if ("VERIFIED".equalsIgnoreCase(request.getAction())) {
+            disbursementPlanRepository.findByApplicationId(applicationId).ifPresent(plan -> {
+                plan.getMilestones().stream()
+                    .filter(m -> m.getComplianceType() == com.infosys.subsidy.enums.MilestoneComplianceType.DOCUMENTATION && m.getStatus() == com.infosys.subsidy.enums.MilestoneStatus.BLOCKED)
+                    .findFirst()
+                    .ifPresent(m -> {
+                        milestoneComplianceService.evaluateDocumentationCompliance(m, applicationId, application.getSchemeId());
+                    });
+            });
+        }
 
         return savedDoc;
     }

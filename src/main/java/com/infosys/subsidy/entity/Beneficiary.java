@@ -86,6 +86,24 @@ public class Beneficiary {
 
     private String region;
 
+    // =============================
+    // BANKING DETAILS (MODULE 3)
+    // =============================
+
+    @Column(name = "bank_account_holder_name")
+    private String bankAccountHolderName;
+
+    @Column(name = "bank_name")
+    private String bankName;
+
+    @Column(name = "bank_account_number", length = 30)
+    private String bankAccountNumber;
+
+    @Column(name = "bank_ifsc_code", length = 20)
+    private String bankIfscCode;
+
+    @Column(name = "bank_account_type", length = 30)
+    private String bankAccountType;
 
     // =============================
     // CONSTRUCTOR
@@ -257,5 +275,47 @@ public class Beneficiary {
 
     public void setUser(User user) {
         this.user = user;
+    }
+    
+    // Banking Getters & Setters
+    
+    public String getBankAccountHolderName() {
+        return bankAccountHolderName;
+    }
+
+    public void setBankAccountHolderName(String bankAccountHolderName) {
+        this.bankAccountHolderName = bankAccountHolderName;
+    }
+
+    public String getBankName() {
+        return bankName;
+    }
+
+    public void setBankName(String bankName) {
+        this.bankName = bankName;
+    }
+
+    public String getBankAccountNumber() {
+        return bankAccountNumber;
+    }
+
+    public void setBankAccountNumber(String bankAccountNumber) {
+        this.bankAccountNumber = bankAccountNumber;
+    }
+
+    public String getBankIfscCode() {
+        return bankIfscCode;
+    }
+
+    public void setBankIfscCode(String bankIfscCode) {
+        this.bankIfscCode = bankIfscCode;
+    }
+
+    public String getBankAccountType() {
+        return bankAccountType;
+    }
+
+    public void setBankAccountType(String bankAccountType) {
+        this.bankAccountType = bankAccountType;
     }
 }

@@ -2,6 +2,7 @@ package com.infosys.subsidy.controller;
 
 import com.infosys.subsidy.dto.BeneficiaryProfileResponse;
 import com.infosys.subsidy.dto.BeneficiaryRequest;
+import com.infosys.subsidy.dto.BeneficiaryBankingRequest;
 import com.infosys.subsidy.entity.Beneficiary;
 import com.infosys.subsidy.service.BeneficiaryService;
 
@@ -90,5 +91,15 @@ public class BeneficiaryController {
         }
 
         return ResponseEntity.ok(profile.get());
+    }
+
+    @PutMapping("/banking")
+    public ResponseEntity<BeneficiaryProfileResponse> updateBankingDetails(
+            @Valid @RequestBody BeneficiaryBankingRequest request,
+            Authentication authentication) {
+        
+        String email = authentication.getName();
+        BeneficiaryProfileResponse response = beneficiaryService.updateBankingDetails(request, email);
+        return ResponseEntity.ok(response);
     }
 }
