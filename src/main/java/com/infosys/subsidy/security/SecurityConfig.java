@@ -143,6 +143,22 @@ public class SecurityConfig {
                         ).hasRole("BENEFICIARY")
 
                         // =========================
+                        // BENEFICIARY GRANT API EXCEPTIONS
+                        // =========================
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/grants/applications/*/plan",
+                                "/api/grants/milestones/*/evidence",
+                                "/api/grants/milestones/*/receipt"
+                        ).hasAnyRole("GRANT_OFFICER", "ADMIN", "BENEFICIARY")
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/grants/milestones/*/evidence",
+                                "/api/grants/milestones/*/compliance"
+                        ).hasAnyRole("GRANT_OFFICER", "ADMIN", "BENEFICIARY")
+                        
+                        // =========================
                         // GRANT OFFICER ACTIONS
                         // =========================
                         .requestMatchers("/api/grants/**")

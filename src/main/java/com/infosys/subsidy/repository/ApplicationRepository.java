@@ -26,5 +26,7 @@ public interface ApplicationRepository
 
     List<Application> findByStatus(ApplicationStatus status);
 
+    List<Application> findByStatusIn(List<ApplicationStatus> statuses);
+
     java.util.Optional<Application> findFirstByBeneficiaryIdAndSchemeIdAndStatusOrderByRejectedAtDesc(Long beneficiaryId, Long schemeId, ApplicationStatus status);
 }

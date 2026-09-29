@@ -22,5 +22,17 @@ public enum ApplicationStatus {
 
     RETURNED_TO_APPLICANT,
     
-    GRANT_DISBURSED
+    GRANT_DISBURSED,
+    
+    PLAN_CONFIGURED,
+    
+    MILESTONE_PENDING,
+    
+    PARTIALLY_DISBURSED,
+
+    MILESTONE_OVERDUE,
+
+    NON_COMPLIANT,
+    
+    FULLY_DISBURSED
 }

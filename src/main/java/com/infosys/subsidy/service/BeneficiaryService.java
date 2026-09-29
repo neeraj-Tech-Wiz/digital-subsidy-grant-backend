@@ -2,6 +2,7 @@ package com.infosys.subsidy.service;
 
 import com.infosys.subsidy.dto.BeneficiaryProfileResponse;
 import com.infosys.subsidy.dto.BeneficiaryRequest;
+import com.infosys.subsidy.dto.BeneficiaryBankingRequest;
 import com.infosys.subsidy.entity.Beneficiary;
 import com.infosys.subsidy.entity.User;
 import com.infosys.subsidy.enums.UserRole;
@@ -132,6 +133,23 @@ public class BeneficiaryService {
                 .map(this::toProfileResponse);
     }
 
+    public BeneficiaryProfileResponse updateBankingDetails(BeneficiaryBankingRequest request, String authenticatedEmail) {
+        User user = userRepository.findByEmail(authenticatedEmail)
+                .orElseThrow(() -> new RuntimeException("Authenticated user not found"));
+
+        Beneficiary beneficiary = beneficiaryRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new RuntimeException("Beneficiary profile not found"));
+
+        beneficiary.setBankAccountHolderName(request.getBankAccountHolderName());
+        beneficiary.setBankName(request.getBankName());
+        beneficiary.setBankAccountNumber(request.getBankAccountNumber());
+        beneficiary.setBankIfscCode(request.getBankIfscCode());
+        beneficiary.setBankAccountType(request.getBankAccountType());
+
+        Beneficiary saved = beneficiaryRepository.save(beneficiary);
+        return toProfileResponse(saved);
+    }
+
 
     // ============================================================
     // HELPER — Map Beneficiary entity to clean DTO.
@@ -160,6 +178,18 @@ public class BeneficiaryService {
         String aadhaar = beneficiary.getAadhaarNumber();
         if (aadhaar != null && aadhaar.length() == 12) {
             response.setAadhaarNumberMasked("XXXX-XXXX-" + aadhaar.substring(8));
+        }
+
+        // Mask Account Number: only show last 4 digits
+        response.setBankAccountHolderName(beneficiary.getBankAccountHolderName());
+        response.setBankName(beneficiary.getBankName());
+        response.setBankIfscCode(beneficiary.getBankIfscCode());
+        response.setBankAccountType(beneficiary.getBankAccountType());
+        String account = beneficiary.getBankAccountNumber();
+        if (account != null && account.length() > 4) {
+            response.setBankAccountNumberMasked("XXXX-XXXX-" + account.substring(account.length() - 4));
+        } else if (account != null) {
+            response.setBankAccountNumberMasked(account);
         }
 
         return response;

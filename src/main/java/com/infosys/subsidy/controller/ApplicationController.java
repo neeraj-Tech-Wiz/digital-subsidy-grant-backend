@@ -142,14 +142,27 @@ public class ApplicationController {
     }
 
     // ============================================================
+    // GET APPLICATION FINANCIAL SUMMARY
+    // ============================================================
+
+    @GetMapping("/{applicationId}/financial-summary")
+    public ResponseEntity<com.infosys.subsidy.dto.BeneficiaryFinancialSummaryDTO> getApplicationFinancialSummary(
+            @PathVariable Long applicationId,
+            Authentication authentication) {
+        String email = authentication.getName();
+        com.infosys.subsidy.dto.BeneficiaryFinancialSummaryDTO summary = applicationService.getApplicationFinancialSummary(applicationId, email);
+        return ResponseEntity.ok(summary);
+    }
+
+    // ============================================================
     // GET MY GRANTS (ALL DISBURSED TO ME)
     // ============================================================
 
     @GetMapping("/my-applications/grants")
-    public ResponseEntity<List<com.infosys.subsidy.entity.GrantDisbursement>> getMyGrants(
+    public ResponseEntity<List<com.infosys.subsidy.entity.FundRelease>> getMyGrants(
             Authentication authentication) {
         String email = authentication.getName();
-        List<com.infosys.subsidy.entity.GrantDisbursement> grants = applicationService.getMyGrants(email);
+        List<com.infosys.subsidy.entity.FundRelease> grants = applicationService.getMyGrants(email);
         return ResponseEntity.ok(grants);
     }
 

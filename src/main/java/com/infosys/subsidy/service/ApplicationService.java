@@ -40,6 +40,8 @@ public class ApplicationService {
     private final UserRepository userRepository;
     private final VerificationHistoryRepository verificationHistoryRepository;
     private final com.infosys.subsidy.repository.GrantDisbursementRepository grantDisbursementRepository;
+    private final com.infosys.subsidy.repository.FundReleaseRepository fundReleaseRepository;
+    private final com.infosys.subsidy.repository.DisbursementPlanRepository disbursementPlanRepository;
 
     public ApplicationService(
             ApplicationRepository applicationRepository,
@@ -51,7 +53,9 @@ public class ApplicationService {
             DocumentValidationService documentValidationService,
             UserRepository userRepository,
             VerificationHistoryRepository verificationHistoryRepository,
-            com.infosys.subsidy.repository.GrantDisbursementRepository grantDisbursementRepository) {
+            com.infosys.subsidy.repository.GrantDisbursementRepository grantDisbursementRepository,
+            com.infosys.subsidy.repository.FundReleaseRepository fundReleaseRepository,
+            com.infosys.subsidy.repository.DisbursementPlanRepository disbursementPlanRepository) {
 
         this.applicationRepository = applicationRepository;
         this.beneficiaryRepository = beneficiaryRepository;
@@ -63,6 +67,8 @@ public class ApplicationService {
         this.userRepository = userRepository;
         this.verificationHistoryRepository = verificationHistoryRepository;
         this.grantDisbursementRepository = grantDisbursementRepository;
+        this.fundReleaseRepository = fundReleaseRepository;
+        this.disbursementPlanRepository = disbursementPlanRepository;
     }
 
     @org.springframework.beans.factory.annotation.Value("${rejection.cooldown.days:30}")
@@ -694,21 +700,72 @@ public class ApplicationService {
     // ============================================================
 
     @Transactional(readOnly = true)
-    public List<com.infosys.subsidy.entity.GrantDisbursement> getMyGrants(String authenticatedEmail) {
+    public List<com.infosys.subsidy.entity.FundRelease> getMyGrants(String authenticatedEmail) {
         User user = getAuthenticatedUser(authenticatedEmail);
         Beneficiary beneficiary = getBeneficiaryForUser(user);
         
         List<Application> myApps = applicationRepository.findByBeneficiaryId(beneficiary.getId());
-        List<com.infosys.subsidy.entity.GrantDisbursement> myGrants = new java.util.ArrayList<>();
+        List<com.infosys.subsidy.entity.FundRelease> myGrants = new java.util.ArrayList<>();
         
         for (Application app : myApps) {
-            grantDisbursementRepository.findByApplicationId(app.getId()).ifPresent(myGrants::add);
+            myGrants.addAll(fundReleaseRepository.findByApplicationIdOrderByReleasedAtAsc(app.getId()));
         }
         
         // Sort newest first
-        myGrants.sort((g1, g2) -> g2.getDisbursedAt().compareTo(g1.getDisbursedAt()));
+        myGrants.sort((g1, g2) -> g2.getReleasedAt().compareTo(g1.getReleasedAt()));
         
         return myGrants;
+    }
+
+    // ============================================================
+    // GET APPLICATION FINANCIAL SUMMARY
+    // ============================================================
+
+    @Transactional(readOnly = true)
+    public com.infosys.subsidy.dto.BeneficiaryFinancialSummaryDTO getApplicationFinancialSummary(Long applicationId, String authenticatedEmail) {
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Application not found with ID: " + applicationId));
+                
+        // MANDATORY OWNERSHIP CHECK
+        verifyApplicationOwnership(application, authenticatedEmail);
+
+        java.math.BigDecimal approvedAmount = java.math.BigDecimal.ZERO;
+        java.math.BigDecimal releasedAmount = java.math.BigDecimal.ZERO;
+
+        com.infosys.subsidy.entity.DisbursementPlan plan = 
+             disbursementPlanRepository.findByApplicationId(applicationId).orElse(null);
+             
+        if (plan != null && plan.getTotalAmount() != null) {
+            approvedAmount = plan.getTotalAmount();
+        } else {
+             // Fallback to GrantDisbursement if it's the old module
+             java.util.Optional<com.infosys.subsidy.entity.GrantDisbursement> legacy = grantDisbursementRepository.findByApplicationId(applicationId);
+             if (legacy.isPresent()) {
+                 approvedAmount = legacy.get().getGrantAmount();
+                 releasedAmount = legacy.get().getGrantAmount();
+             }
+        }
+
+        if (plan != null) {
+            List<com.infosys.subsidy.entity.FundRelease> releases = fundReleaseRepository.findByApplicationIdOrderByReleasedAtAsc(applicationId);
+            for (com.infosys.subsidy.entity.FundRelease fr : releases) {
+                if ("SUCCESS".equals(fr.getStatus()) || "RELEASED".equals(fr.getStatus()) || "DISBURSED".equals(fr.getStatus())) {
+                    releasedAmount = releasedAmount.add(fr.getAmount());
+                }
+            }
+        }
+
+        java.math.BigDecimal remainingAmount = approvedAmount.subtract(releasedAmount);
+        if (remainingAmount.compareTo(java.math.BigDecimal.ZERO) < 0) {
+            remainingAmount = java.math.BigDecimal.ZERO;
+        }
+
+        java.math.BigDecimal utilization = java.math.BigDecimal.ZERO;
+        if (approvedAmount.compareTo(java.math.BigDecimal.ZERO) > 0) {
+            utilization = releasedAmount.divide(approvedAmount, 2, java.math.RoundingMode.HALF_UP).multiply(new java.math.BigDecimal("100"));
+        }
+
+        return new com.infosys.subsidy.dto.BeneficiaryFinancialSummaryDTO(approvedAmount, releasedAmount, remainingAmount, utilization, application.getStatus().name());
     }
 
     // ============================================================
