@@ -268,6 +268,9 @@ public class MilestoneComplianceService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Remarks are mandatory for rejection.");
             }
             evidence.setStatus("REJECTED");
+            milestone.setStatus(MilestoneStatus.NON_COMPLIANT);
+            milestone.setRemarks(remarks);
+            milestoneRepository.save(milestone);
         } else {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid action.");
         }

@@ -13,6 +13,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -405,6 +407,69 @@ public class GrantService {
     }
 
     @Transactional(readOnly = true)
+    public List<Map<String, Object>> getNonCompliantMilestones() {
+        List<DisbursementMilestone> nonCompliant = milestoneRepository.findAll().stream()
+                .filter(m -> m.getStatus() == MilestoneStatus.NON_COMPLIANT)
+                .collect(Collectors.toList());
+        
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (DisbursementMilestone m : nonCompliant) {
+            DisbursementPlan p = m.getPlan();
+            Application app = applicationRepository.findById(p.getApplicationId()).orElse(null);
+            if (app == null) continue;
+            Beneficiary b = beneficiaryRepository.findById(app.getBeneficiaryId()).orElse(null);
+            Scheme s = schemeRepository.findById(app.getSchemeId()).orElse(null);
+            
+            Map<String, Object> map = new HashMap<>();
+            map.put("applicationId", app.getId());
+            map.put("applicationReference", String.format("APP-%04d", app.getId()));
+            map.put("beneficiaryName", b != null ? b.getName() : "Unknown");
+            map.put("schemeName", s != null ? s.getSchemeName() : "Unknown");
+            map.put("milestoneId", m.getId());
+            map.put("milestoneName", m.getMilestoneName());
+            map.put("milestoneNumber", m.getMilestoneNumber());
+            map.put("amount", m.getScheduledAmount());
+            map.put("status", m.getStatus().name());
+            map.put("remarks", m.getRemarks() != null ? m.getRemarks() : "No remarks provided");
+            map.put("reviewedAt", m.getComplianceVerifiedAt() != null ? m.getComplianceVerifiedAt().toString() : LocalDateTime.now().toString());
+            result.add(map);
+        }
+        return result;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getPendingComplianceMilestones() {
+        List<DisbursementMilestone> pending = milestoneRepository.findAll().stream()
+                .filter(m -> m.getStatus() == MilestoneStatus.COMPLIANCE_SUBMITTED 
+                          || m.getStatus() == MilestoneStatus.UNDER_REVIEW 
+                          || ((m.getStatus() == MilestoneStatus.PENDING || m.getStatus() == MilestoneStatus.BLOCKED) && m.getComplianceType() == com.infosys.subsidy.enums.MilestoneComplianceType.DOCUMENTATION))
+                .collect(Collectors.toList());
+        
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (DisbursementMilestone m : pending) {
+            DisbursementPlan p = m.getPlan();
+            Application app = applicationRepository.findById(p.getApplicationId()).orElse(null);
+            if (app == null) continue;
+            Beneficiary b = beneficiaryRepository.findById(app.getBeneficiaryId()).orElse(null);
+            Scheme s = schemeRepository.findById(app.getSchemeId()).orElse(null);
+            
+            Map<String, Object> map = new HashMap<>();
+            map.put("applicationId", app.getId());
+            map.put("applicationReference", String.format("APP-%04d", app.getId()));
+            map.put("beneficiaryName", b != null ? b.getName() : "Unknown");
+            map.put("schemeName", s != null ? s.getSchemeName() : "Unknown");
+            map.put("milestoneId", m.getId());
+            map.put("milestoneName", m.getMilestoneName());
+            map.put("milestoneNumber", m.getMilestoneNumber());
+            map.put("amount", m.getScheduledAmount());
+            map.put("status", m.getStatus().name());
+            map.put("submittedAt", m.getUpdatedAt() != null ? m.getUpdatedAt().toString() : LocalDateTime.now().toString());
+            result.add(map);
+        }
+        return result;
+    }
+
+    @Transactional(readOnly = true)
     public PlanResponseDTO getDisbursementPlan(Long applicationId) {
         DisbursementPlan plan = planRepository.findByApplicationId(applicationId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Plan not found"));
@@ -430,7 +495,26 @@ public class GrantService {
             mdto.setDescription(m.getDescription());
             mdto.setAmount(m.getScheduledAmount());
             mdto.setDueDate(m.getDueDate());
-            mdto.setStatus(m.getStatus());
+            
+            // Strong fallback check to ensure NON_COMPLIANT state never gets masked
+            MilestoneStatus finalStatus = m.getStatus();
+            if (m.getComplianceType() == com.infosys.subsidy.enums.MilestoneComplianceType.UTILIZATION_PROOF) {
+                List<com.infosys.subsidy.entity.MilestoneComplianceEvidence> allEv = complianceService.getEvidenceForMilestone(m.getId());
+                boolean hasRejected = allEv.stream().anyMatch(ev -> "REJECTED".equalsIgnoreCase(ev.getStatus()));
+                boolean hasPendingOrVerified = allEv.stream().anyMatch(ev -> 
+                    "SUBMITTED".equalsIgnoreCase(ev.getStatus()) || 
+                    "UNDER_REVIEW".equalsIgnoreCase(ev.getStatus()) || 
+                    "VERIFIED".equalsIgnoreCase(ev.getStatus()) ||
+                    "COMPLETED".equalsIgnoreCase(ev.getStatus())
+                );
+                
+                // If there's a rejection, BUT no new/active submissions, force it to NON_COMPLIANT.
+                if (hasRejected && !hasPendingOrVerified) {
+                    finalStatus = MilestoneStatus.NON_COMPLIANT;
+                }
+            }
+            mdto.setStatus(finalStatus);
+            
             mdto.setComplianceType(m.getComplianceType());
             mdto.setComplianceVerifiedAt(m.getComplianceVerifiedAt());
             mdto.setRemarks(m.getRemarks());

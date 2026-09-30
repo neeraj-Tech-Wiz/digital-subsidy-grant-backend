@@ -206,7 +206,7 @@ public class ApplicationService {
         // ==========================================
 
         int totalScore = 0;
-        boolean mandatoryCriteriaPassed = true;
+        java.util.List<String> failedMandatoryCriteria = new java.util.ArrayList<>();
 
         for (EligibilityCriteria criterion : scheme.getCriteriaList()) {
 
@@ -218,7 +218,7 @@ public class ApplicationService {
 
             if (fieldName == null || fieldName.isBlank()) {
                 if (criterion.isMandatory()) {
-                    mandatoryCriteriaPassed = false;
+                    failedMandatoryCriteria.add(criterion.getCriterionName() + " (Missing)");
                 }
                 continue;
             }
@@ -233,7 +233,7 @@ public class ApplicationService {
             }
 
             if (criterion.isMandatory() && !passed) {
-                mandatoryCriteriaPassed = false;
+                failedMandatoryCriteria.add(criterion.getCriterionName());
             }
         }
 
@@ -244,7 +244,7 @@ public class ApplicationService {
 
         ApplicationStatus applicationStatus;
 
-        if (mandatoryCriteriaPassed && totalScore >= 60) {
+        if (failedMandatoryCriteria.isEmpty() && totalScore >= 60) {
             applicationStatus = ApplicationStatus.ELIGIBLE;
         } else {
             applicationStatus = ApplicationStatus.NOT_ELIGIBLE;
@@ -274,10 +274,18 @@ public class ApplicationService {
             application.setStatus(ApplicationStatus.NOT_ELIGIBLE);
             application.setCurrentVerificationLevel(null);
             application.setVerificationRoute(null);
-            application.setRemarks(
-                    "Application did not meet the eligibility requirements. "
-                            + "Score: " + totalScore
-                            + ". Minimum required score: 60.");
+            
+            if (!failedMandatoryCriteria.isEmpty()) {
+                application.setRemarks(
+                        "Application did not meet mandatory requirements for: " 
+                        + String.join(", ", failedMandatoryCriteria) 
+                        + ".");
+            } else {
+                application.setRemarks(
+                        "Application did not meet the minimum score requirement. "
+                                + "Score: " + totalScore
+                                + ". Minimum required score: 60.");
+            }
 
         } else {
 
@@ -432,23 +440,26 @@ public class ApplicationService {
         }
 
         int totalScore = 0;
-        boolean mandatoryCriteriaPassed = true;
+        java.util.List<String> failedMandatoryCriteria = new java.util.ArrayList<>();
 
         for (EligibilityCriteria criterion : scheme.getCriteriaList()) {
             if (!criterion.isActive()) continue;
             String fieldName = criterion.getFieldName();
             if (fieldName == null || fieldName.isBlank()) {
-                if (criterion.isMandatory()) mandatoryCriteriaPassed = false;
+                if (criterion.isMandatory()) failedMandatoryCriteria.add(criterion.getCriterionName() + " (Missing)");
                 continue;
             }
             boolean passed = eligibilityService.evaluateCriterion(eligibilityData, criterion);
             if (passed) totalScore += criterion.getWeight();
-            if (criterion.isMandatory() && !passed) mandatoryCriteriaPassed = false;
+            if (criterion.isMandatory() && !passed) failedMandatoryCriteria.add(criterion.getCriterionName());
         }
 
-        ApplicationStatus applicationStatus = (mandatoryCriteriaPassed && totalScore >= 60)
-                ? ApplicationStatus.ELIGIBLE
-                : ApplicationStatus.NOT_ELIGIBLE;
+        ApplicationStatus applicationStatus;
+        if (failedMandatoryCriteria.isEmpty() && totalScore >= 60) {
+            applicationStatus = ApplicationStatus.ELIGIBLE;
+        } else {
+            applicationStatus = ApplicationStatus.NOT_ELIGIBLE;
+        }
 
         Application application = new Application();
         application.setApplicationDate(LocalDateTime.now());
@@ -460,7 +471,11 @@ public class ApplicationService {
             application.setStatus(ApplicationStatus.NOT_ELIGIBLE);
             application.setCurrentVerificationLevel(null);
             application.setVerificationRoute(null);
-            application.setRemarks("Not eligible. Score: " + totalScore + ". Minimum: 60.");
+            if (!failedMandatoryCriteria.isEmpty()) {
+                application.setRemarks("Failed mandatory requirements: " + String.join(", ", failedMandatoryCriteria));
+            } else {
+                application.setRemarks("Not eligible. Score: " + totalScore + ". Minimum: 60.");
+            }
         } else {
             application.setStatus(ApplicationStatus.DOCUMENTS_PENDING);
             application.setCurrentVerificationLevel(null);
@@ -606,7 +621,7 @@ public class ApplicationService {
         Scheme scheme = schemeRepository.findById(application.getSchemeId()).orElseThrow();
         int totalScore = 0;
         int maxScore = 0;
-        boolean mandatoryCriteriaPassed = true;
+        java.util.List<String> failedMandatoryCriteria = new java.util.ArrayList<>();
 
         for (EligibilityCriteria criterion : scheme.getCriteriaList()) {
             if (!criterion.isActive()) continue;
@@ -615,7 +630,7 @@ public class ApplicationService {
             maxScore += criterion.getWeight();
 
             if (fieldName == null || fieldName.isBlank()) {
-                if (criterion.isMandatory()) mandatoryCriteriaPassed = false;
+                if (criterion.isMandatory()) failedMandatoryCriteria.add(criterion.getCriterionName() + " (Missing)");
                 continue;
             }
 
@@ -625,12 +640,15 @@ public class ApplicationService {
             }
 
             if (criterion.isMandatory() && !passed) {
-                mandatoryCriteriaPassed = false;
+                failedMandatoryCriteria.add(criterion.getCriterionName());
             }
         }
 
-        if (!mandatoryCriteriaPassed || totalScore < 60) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Updated application fails minimum eligibility requirements (Must be 60 points + all mandatory criteria).");
+        if (!failedMandatoryCriteria.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Updated application fails mandatory requirements: " + String.join(", ", failedMandatoryCriteria));
+        }
+        if (totalScore < 60) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Updated application fails minimum score requirement (Must be 60 points, you scored " + totalScore + ").");
         }
 
         application.setEligibilityScore(totalScore);

@@ -143,6 +143,18 @@ public class GrantController {
         grantService.nukePlanAndResetApplication(id);
         return ResponseEntity.ok("Plan erased for APP-" + id + ". Please refresh the page to configure a new one.");
     }
+    
+    @GetMapping("/compliance/non-compliant")
+    @PreAuthorize("hasAnyRole('GRANT_OFFICER', 'ADMIN')")
+    public ResponseEntity<List<Map<String, Object>>> getNonCompliantCompliance() {
+        return ResponseEntity.ok(grantService.getNonCompliantMilestones());
+    }
+
+    @GetMapping("/compliance/pending")
+    @PreAuthorize("hasAnyRole('GRANT_OFFICER', 'ADMIN')")
+    public ResponseEntity<List<Map<String, Object>>> getPendingCompliance() {
+        return ResponseEntity.ok(grantService.getPendingComplianceMilestones());
+    }
 
     @GetMapping("/plans")
     @PreAuthorize("hasAnyRole('GRANT_OFFICER', 'ADMIN')")
