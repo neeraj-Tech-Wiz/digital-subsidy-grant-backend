@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import org.mockito.Mockito;
+import org.mockito.ArgumentMatchers;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -105,7 +107,7 @@ public class GrantServiceTest {
         
         req.setMilestones(ms);
 
-        when(planRepository.save(any(DisbursementPlan.class))).thenAnswer(i -> {
+        when(planRepository.save(Mockito.<DisbursementPlan>any())).thenAnswer(i -> {
             DisbursementPlan saved = (DisbursementPlan) i.getArguments()[0];
             saved.setId(1000L);
             return saved;
