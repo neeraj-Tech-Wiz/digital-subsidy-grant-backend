@@ -183,6 +183,18 @@ public class ApplicationDocumentService {
 
         document = applicationDocumentRepository.save(document);
 
+        User user = userRepository.findByEmail(SecurityContextHolder.getContext().getAuthentication().getName()).orElseThrow();
+        VerificationHistory history = new VerificationHistory();
+        history.setApplicationId(application.getId());
+        history.setOfficerId(user.getId());
+        history.setOfficerName("Beneficiary");
+        history.setOfficerRole(UserRole.BENEFICIARY.name());
+        history.setVerificationLevel("INDIVIDUAL_UPLOAD");
+        history.setAction(documentType == com.infosys.subsidy.enums.DocumentType.BANK_PASSBOOK ? "BANKING_DOCUMENT_SUBMITTED" : "DOCUMENT_UPLOADED");
+        history.setRemarks("Beneficiary uploaded document: " + documentName);
+        history.setActionTimestamp(LocalDateTime.now());
+        verificationHistoryRepository.save(history);
+
         return new DocumentUploadResponse(
                 document.getId(),
                 application.getId(),

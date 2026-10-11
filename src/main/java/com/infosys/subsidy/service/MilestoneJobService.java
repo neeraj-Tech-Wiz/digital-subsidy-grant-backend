@@ -78,16 +78,6 @@ public class MilestoneJobService {
 
     @Scheduled(cron = "0 0 2 * * ?") // Runs daily at 2 AM
     public void executeAutomaticReleases() {
-        // Run as the first available ADMIN for logging
-        User operator = userRepository.findAll().stream()
-            .filter(u -> u.getRole() == UserRole.ADMIN)
-            .findFirst()
-            .orElse(null);
-            
-        if (operator == null) {
-            System.err.println("Cannot run executeAutomaticReleases: No ADMIN user found to act as operator.");
-            return; 
-        }
 
         LocalDateTime now = LocalDateTime.now();
         List<DisbursementMilestone> candidates = milestoneRepository.findByStatusAndDueDateBefore(MilestoneStatus.PENDING, now);
@@ -96,7 +86,7 @@ public class MilestoneJobService {
         for (DisbursementMilestone m : candidates) {
             try {
                 // All verification, sequence, budget, and duplication checks are strictly enforced in GrantService natively.
-                grantService.releaseMilestone(m.getPlan().getApplicationId(), m.getId(), operator.getEmail());
+                grantService.releaseMilestone(m.getPlan().getApplicationId(), m.getId(), "SYSTEM");
             } catch (Exception e) {
                 // A single failure isolates itself and does not crash the entire scheduled cron block
                 System.err.println("Auto-Release Skipped for Milestone " + m.getId() + " - " + e.getMessage());

@@ -48,6 +48,8 @@ public class GrantServiceTest {
     private FundReleaseRepository fundReleaseRepository;
     @Mock
     private MilestoneComplianceService complianceService;
+    @Mock
+    private VerificationHistoryRepository verificationHistoryRepository;
 
     @InjectMocks
     private GrantService grantService;

@@ -11,15 +11,26 @@ public class VerificationHistoryDTO {
     private String remarks;
     private LocalDateTime actionTimestamp;
 
+    private Long milestoneId;
+    private Long fundReleaseId;
+    private java.math.BigDecimal amount;
+    private String previousStatus;
+    private String newStatus;
+
     public VerificationHistoryDTO() {}
 
-    public VerificationHistoryDTO(String officerName, String officerRole, String verificationLevel, String action, String remarks, LocalDateTime actionTimestamp) {
+    public VerificationHistoryDTO(String officerName, String officerRole, String verificationLevel, String action, String remarks, LocalDateTime actionTimestamp, Long milestoneId, Long fundReleaseId, java.math.BigDecimal amount, String previousStatus, String newStatus) {
         this.officerName = officerName;
         this.officerRole = officerRole;
         this.verificationLevel = verificationLevel;
         this.action = action;
         this.remarks = remarks;
         this.actionTimestamp = actionTimestamp;
+        this.milestoneId = milestoneId;
+        this.fundReleaseId = fundReleaseId;
+        this.amount = amount;
+        this.previousStatus = previousStatus;
+        this.newStatus = newStatus;
     }
 
     public String getOfficerName() {
@@ -68,5 +79,45 @@ public class VerificationHistoryDTO {
 
     public void setActionTimestamp(LocalDateTime actionTimestamp) {
         this.actionTimestamp = actionTimestamp;
+    }
+
+    public Long getMilestoneId() {
+        return milestoneId;
+    }
+
+    public void setMilestoneId(Long milestoneId) {
+        this.milestoneId = milestoneId;
+    }
+
+    public Long getFundReleaseId() {
+        return fundReleaseId;
+    }
+
+    public void setFundReleaseId(Long fundReleaseId) {
+        this.fundReleaseId = fundReleaseId;
+    }
+
+    public java.math.BigDecimal getAmount() {
+        return amount;
+    }
+
+    public void setAmount(java.math.BigDecimal amount) {
+        this.amount = amount;
+    }
+
+    public String getPreviousStatus() {
+        return previousStatus;
+    }
+
+    public void setPreviousStatus(String previousStatus) {
+        this.previousStatus = previousStatus;
+    }
+
+    public String getNewStatus() {
+        return newStatus;
+    }
+
+    public void setNewStatus(String newStatus) {
+        this.newStatus = newStatus;
     }
 }

@@ -33,6 +33,7 @@ public class MilestoneComplianceService {
     private final com.infosys.subsidy.repository.MilestoneComplianceEvidenceRepository evidenceRepository;
     private final com.infosys.subsidy.repository.BeneficiaryRepository beneficiaryRepository;
     private final com.infosys.subsidy.repository.ApplicationRepository applicationRepository;
+    private final com.infosys.subsidy.repository.VerificationHistoryRepository verificationHistoryRepository;
 
     public MilestoneComplianceService(DisbursementMilestoneRepository milestoneRepository,
                                       ApplicationDocumentRepository applicationDocumentRepository,
@@ -41,7 +42,8 @@ public class MilestoneComplianceService {
                                       DocumentStorageService documentStorageService,
                                       com.infosys.subsidy.repository.MilestoneComplianceEvidenceRepository evidenceRepository,
                                       com.infosys.subsidy.repository.BeneficiaryRepository beneficiaryRepository,
-                                      com.infosys.subsidy.repository.ApplicationRepository applicationRepository) {
+                                      com.infosys.subsidy.repository.ApplicationRepository applicationRepository,
+                                      com.infosys.subsidy.repository.VerificationHistoryRepository verificationHistoryRepository) {
         this.milestoneRepository = milestoneRepository;
         this.applicationDocumentRepository = applicationDocumentRepository;
         this.schemeRequiredDocumentRepository = schemeRequiredDocumentRepository;
@@ -50,6 +52,7 @@ public class MilestoneComplianceService {
         this.evidenceRepository = evidenceRepository;
         this.beneficiaryRepository = beneficiaryRepository;
         this.applicationRepository = applicationRepository;
+        this.verificationHistoryRepository = verificationHistoryRepository;
     }
 
     @Transactional
@@ -167,11 +170,30 @@ public class MilestoneComplianceService {
             evidenceRepository.save(ev);
         }
 
-        milestone.setStatus(MilestoneStatus.COMPLIANCE_SUBMITTED);
+        boolean wasNonCompliant = milestone.getStatus() == com.infosys.subsidy.enums.MilestoneStatus.NON_COMPLIANT;
+        String previousStatus = milestone.getStatus().name();
+        
+        milestone.setStatus(com.infosys.subsidy.enums.MilestoneStatus.COMPLIANCE_SUBMITTED);
         if (remarks != null && !remarks.isEmpty()) {
             milestone.setRemarks(remarks);
         }
-        return milestoneRepository.save(milestone);
+        DisbursementMilestone savedMilestone = milestoneRepository.save(milestone);
+        
+        com.infosys.subsidy.entity.VerificationHistory audit = new com.infosys.subsidy.entity.VerificationHistory();
+        audit.setApplicationId(milestone.getPlan().getApplicationId());
+        audit.setOfficerId(submitter.getId());
+        audit.setOfficerName("Beneficiary");
+        audit.setOfficerRole("BENEFICIARY");
+        audit.setVerificationLevel("UTILIZATION_EVIDENCE");
+        audit.setAction(wasNonCompliant ? "UTILIZATION_PROOF_RESUBMITTED" : "UTILIZATION_PROOF_SUBMITTED");
+        audit.setRemarks(remarks != null ? remarks : (wasNonCompliant ? "Corrected utilization proof submitted" : "Utilization proof submitted"));
+        audit.setActionTimestamp(LocalDateTime.now());
+        audit.setMilestoneId(milestoneId);
+        audit.setPreviousStatus(previousStatus);
+        audit.setNewStatus(com.infosys.subsidy.enums.MilestoneStatus.COMPLIANCE_SUBMITTED.name());
+        verificationHistoryRepository.save(audit);
+        
+        return savedMilestone;
     }
     
     @Transactional
@@ -230,16 +252,45 @@ public class MilestoneComplianceService {
             milestone.setRemarks(remarks);
         }
 
-        return milestoneRepository.save(milestone);
+        DisbursementMilestone savedMilestone = milestoneRepository.save(milestone);
+        
+        com.infosys.subsidy.entity.VerificationHistory audit = new com.infosys.subsidy.entity.VerificationHistory();
+        audit.setApplicationId(milestone.getPlan().getApplicationId());
+        audit.setOfficerId(verifier.getId());
+        audit.setOfficerName(verifier.getName());
+        audit.setOfficerRole(verifier.getRole().name());
+        audit.setVerificationLevel("UTILIZATION_EVIDENCE_REVIEW");
+        audit.setAction(approved ? "UTILIZATION_PROOF_VERIFIED" : "UTILIZATION_PROOF_NON_COMPLIANT");
+        audit.setRemarks(remarks);
+        audit.setActionTimestamp(LocalDateTime.now());
+        audit.setMilestoneId(milestoneId);
+        audit.setNewStatus(savedMilestone.getStatus().name());
+        verificationHistoryRepository.save(audit);
+
+        return savedMilestone;
     }
 
-    public List<com.infosys.subsidy.entity.MilestoneComplianceEvidence> getEvidenceForMilestone(Long milestoneId) {
+    public List<com.infosys.subsidy.entity.MilestoneComplianceEvidence> getEvidenceForMilestone(Long milestoneId, String authenticatedEmail) {
+        DisbursementMilestone milestone = milestoneRepository.findById(milestoneId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Milestone not found"));
+        com.infosys.subsidy.entity.Application application = applicationRepository.findById(milestone.getPlan().getApplicationId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Application not found"));
+                
+        verifyApplicationOwnership(application, authenticatedEmail);
+
         return evidenceRepository.findByMilestoneId(milestoneId);
     }
 
-    public com.infosys.subsidy.entity.MilestoneComplianceEvidence getEvidenceById(Long id) {
-        return evidenceRepository.findById(id)
+    public com.infosys.subsidy.entity.MilestoneComplianceEvidence getEvidenceById(Long id, String authenticatedEmail) {
+        com.infosys.subsidy.entity.MilestoneComplianceEvidence evidence = evidenceRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Evidence not found"));
+                
+        com.infosys.subsidy.entity.Application application = applicationRepository.findById(evidence.getApplicationId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Application not found"));
+                
+        verifyApplicationOwnership(application, authenticatedEmail);
+        
+        return evidence;
     }
 
     @Transactional
@@ -271,6 +322,19 @@ public class MilestoneComplianceService {
             milestone.setStatus(MilestoneStatus.NON_COMPLIANT);
             milestone.setRemarks(remarks);
             milestoneRepository.save(milestone);
+            
+            com.infosys.subsidy.entity.VerificationHistory audit = new com.infosys.subsidy.entity.VerificationHistory();
+            audit.setApplicationId(milestone.getPlan().getApplicationId());
+            audit.setOfficerId(verifier.getId());
+            audit.setOfficerName(verifier.getName());
+            audit.setOfficerRole(verifier.getRole().name());
+            audit.setVerificationLevel("UTILIZATION_EVIDENCE_REVIEW");
+            audit.setAction("UTILIZATION_PROOF_NON_COMPLIANT");
+            audit.setRemarks(remarks);
+            audit.setActionTimestamp(LocalDateTime.now());
+            audit.setMilestoneId(milestoneId);
+            audit.setNewStatus(MilestoneStatus.NON_COMPLIANT.name());
+            verificationHistoryRepository.save(audit);
         } else {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid action.");
         }
@@ -293,9 +357,43 @@ public class MilestoneComplianceService {
                 milestone.setComplianceVerifiedBy(verifier.getId());
                 milestone.setRemarks("Auto-verified: all submitted evidence documents were verified.");
                 milestoneRepository.save(milestone);
+                
+                com.infosys.subsidy.entity.VerificationHistory audit = new com.infosys.subsidy.entity.VerificationHistory();
+                audit.setApplicationId(milestone.getPlan().getApplicationId());
+                audit.setOfficerId(verifier.getId());
+                audit.setOfficerName(verifier.getName());
+                audit.setOfficerRole(verifier.getRole().name());
+                audit.setVerificationLevel("UTILIZATION_EVIDENCE_REVIEW");
+                audit.setAction("UTILIZATION_PROOF_VERIFIED");
+                audit.setRemarks("Auto-verified: all submitted evidence documents were verified.");
+                audit.setActionTimestamp(LocalDateTime.now());
+                audit.setMilestoneId(milestoneId);
+                audit.setNewStatus(MilestoneStatus.COMPLETED.name());
+                verificationHistoryRepository.save(audit);
             }
         }
 
         return savedEvidence;
+    }
+
+    // ============================================================
+    // HELPER — Verify application ownership.
+    // ============================================================
+    private void verifyApplicationOwnership(com.infosys.subsidy.entity.Application application, String authenticatedEmail) {
+        User user = userRepository.findByEmail(authenticatedEmail)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
+                        
+        if (user.getRole() == UserRole.BENEFICIARY) {
+            com.infosys.subsidy.entity.Beneficiary beneficiary = beneficiaryRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.FORBIDDEN, "Beneficiary profile not found."));
+                        
+            if (!beneficiary.getId().equals(application.getBeneficiaryId())) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "You are not authorized to access this application.");
+            }
+        }
     }
 }

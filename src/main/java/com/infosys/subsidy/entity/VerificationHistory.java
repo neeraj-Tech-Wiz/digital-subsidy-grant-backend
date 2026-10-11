@@ -35,6 +35,21 @@ public class VerificationHistory {
     @Column(name = "action_timestamp", nullable = false)
     private LocalDateTime actionTimestamp;
 
+    @Column(name = "milestone_id")
+    private Long milestoneId;
+
+    @Column(name = "fund_release_id")
+    private Long fundReleaseId;
+
+    @Column(name = "amount", precision = 15, scale = 2)
+    private java.math.BigDecimal amount;
+
+    @Column(name = "previous_status")
+    private String previousStatus;
+
+    @Column(name = "new_status")
+    private String newStatus;
+
     public VerificationHistory() {
     }
 
@@ -108,5 +123,45 @@ public class VerificationHistory {
 
     public void setActionTimestamp(LocalDateTime actionTimestamp) {
         this.actionTimestamp = actionTimestamp;
+    }
+
+    public Long getMilestoneId() {
+        return milestoneId;
+    }
+
+    public void setMilestoneId(Long milestoneId) {
+        this.milestoneId = milestoneId;
+    }
+
+    public Long getFundReleaseId() {
+        return fundReleaseId;
+    }
+
+    public void setFundReleaseId(Long fundReleaseId) {
+        this.fundReleaseId = fundReleaseId;
+    }
+
+    public java.math.BigDecimal getAmount() {
+        return amount;
+    }
+
+    public void setAmount(java.math.BigDecimal amount) {
+        this.amount = amount;
+    }
+
+    public String getPreviousStatus() {
+        return previousStatus;
+    }
+
+    public void setPreviousStatus(String previousStatus) {
+        this.previousStatus = previousStatus;
+    }
+
+    public String getNewStatus() {
+        return newStatus;
+    }
+
+    public void setNewStatus(String newStatus) {
+        this.newStatus = newStatus;
     }
 }

@@ -20,11 +20,14 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final CustomAccessDeniedHandler customAccessDeniedHandler;
 
     public SecurityConfig(
-            JwtAuthenticationFilter jwtAuthenticationFilter
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            CustomAccessDeniedHandler customAccessDeniedHandler
     ) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.customAccessDeniedHandler = customAccessDeniedHandler;
     }
 
     @Bean
@@ -94,6 +97,11 @@ public class SecurityConfig {
                         )
                 )
 
+                // Custom exception handling for auth
+                .exceptionHandling(ex -> ex
+                        .accessDeniedHandler(customAccessDeniedHandler)
+                )
+
                 // =========================
                 // AUTHORIZATION RULES
                 // =========================
@@ -110,13 +118,17 @@ public class SecurityConfig {
                         // =========================
                         .requestMatchers(
                                 "/api/auth/register",
-                                "/api/auth/login"
+                                "/api/auth/login",
+                                "/api/auth/login-otp",
+                                "/api/auth/verify-otp",
+                                "/api/auth/resend-otp",
+                                "/api/auth/verify-registration-otp"
                         ).permitAll()
 
                         // =========================
-                        // ADMIN OFFICER MANAGEMENT
+                        // ADMIN OWNER APIS
                         // =========================
-                        .requestMatchers("/api/admin/officers", "/api/admin/officers/**")
+                        .requestMatchers("/api/admin/officers", "/api/admin/officers/**", "/api/admin/audit", "/api/admin/audit/**", "/api/admin/dashboard/**")
                         .hasRole("ADMIN")
 
                         // =========================
@@ -190,7 +202,14 @@ public class SecurityConfig {
                                 "GRANT_OFFICER"
                         )
 
-                        .requestMatchers("/api/schemes/**").permitAll()
+                        // =========================
+                        // PUBLIC SCHEME API
+                        // Only GET requests should be public
+                        // =========================
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/schemes/**"
+                        ).permitAll()
 
                         // =========================
                         // ADMIN ONLY

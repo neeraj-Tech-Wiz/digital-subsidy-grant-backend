@@ -59,6 +59,14 @@ application-local.yaml
 logs/
 uploads/
 
+# Temporary build & test output logs
+*_log.txt
+*_output*.txt
+mvn-errors.txt
+package-final.txt
+test-*.txt
+test_*.txt
+
 
 # ==============================
 # OS generated files

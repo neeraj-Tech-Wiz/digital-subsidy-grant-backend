@@ -7,6 +7,7 @@ import com.infosys.subsidy.entity.Beneficiary;
 import com.infosys.subsidy.entity.EligibilityCriteria;
 import com.infosys.subsidy.entity.Scheme;
 import com.infosys.subsidy.entity.User;
+import com.infosys.subsidy.entity.VerificationHistory;
 import com.infosys.subsidy.enums.ApplicationStatus;
 import com.infosys.subsidy.enums.UserRole;
 import com.infosys.subsidy.enums.VerificationLevel;
@@ -319,8 +320,18 @@ public class ApplicationService {
 
 
         // ==========================================
-        // 11. DEBUG LOG
+        // 11. AUDIT LOGGING
         // ==========================================
+        VerificationHistory history = new VerificationHistory();
+        history.setApplicationId(savedApplication.getId());
+        history.setOfficerId(user.getId());
+        history.setOfficerName(beneficiary.getName());
+        history.setOfficerRole(UserRole.BENEFICIARY.name());
+        history.setVerificationLevel("INITIAL_SCORING");
+        history.setAction("APPLICATION_SUBMITTED");
+        history.setRemarks("Application submitted with eligibility score: " + totalScore);
+        history.setActionTimestamp(LocalDateTime.now());
+        verificationHistoryRepository.save(history);
 
 
 
@@ -392,7 +403,20 @@ public class ApplicationService {
         application.setVerificationAssignedAt(assignedAt);
         application.setVerificationDueDate(assignedAt.plusDays(3));
 
-        return applicationRepository.save(application);
+        Application savedApp = applicationRepository.save(application);
+
+        VerificationHistory history = new VerificationHistory();
+        history.setApplicationId(savedApp.getId());
+        history.setOfficerId(getAuthenticatedUser(authenticatedEmail).getId());
+        history.setOfficerName("Beneficiary");
+        history.setOfficerRole(UserRole.BENEFICIARY.name());
+        history.setVerificationLevel("INITIAL_SUBMISSION");
+        history.setAction("DOCUMENT_SUBMITTED");
+        history.setRemarks("Beneficiary submitted mandatory documents. Verification route assigned: " + route);
+        history.setActionTimestamp(LocalDateTime.now());
+        verificationHistoryRepository.save(history);
+
+        return savedApp;
     }
 
     // ============================================================
@@ -492,6 +516,18 @@ public class ApplicationService {
             data.setActualValue(entry.getValue());
             eligibilityDataRepository.save(data);
         }
+
+        VerificationHistory auditScore = new VerificationHistory();
+        auditScore.setApplicationId(saved.getId());
+        auditScore.setOfficerId(beneficiary.getUser() != null ? beneficiary.getUser().getId() : 0L); 
+        auditScore.setOfficerName("Beneficiary");
+        auditScore.setOfficerRole("BENEFICIARY");
+        auditScore.setVerificationLevel("INITIAL_SCORING");
+        auditScore.setAction("ELIGIBILITY_SCORED");
+        auditScore.setRemarks("System calculated initial eligibility score: " + totalScore);
+        auditScore.setActionTimestamp(LocalDateTime.now());
+        auditScore.setNewStatus(saved.getStatus().name());
+        verificationHistoryRepository.save(auditScore);
 
         return saved;
     }
@@ -670,7 +706,37 @@ public class ApplicationService {
         application.setVerificationAssignedAt(assignedAt);
         application.setVerificationDueDate(assignedAt.plusDays(3));
 
-        return applicationRepository.save(application);
+        Application savedApp = applicationRepository.save(application);
+        
+        User actor = getAuthenticatedUser(authenticatedEmail);
+
+        VerificationHistory auditResubmit = new VerificationHistory();
+        auditResubmit.setApplicationId(savedApp.getId());
+        auditResubmit.setOfficerId(actor.getId());
+        auditResubmit.setOfficerName("Beneficiary");
+        auditResubmit.setOfficerRole("BENEFICIARY");
+        auditResubmit.setVerificationLevel("RESUBMISSION");
+        auditResubmit.setAction("RESUBMITTED");
+        auditResubmit.setRemarks("Application resubmitted by the beneficiary.");
+        auditResubmit.setActionTimestamp(LocalDateTime.now());
+        auditResubmit.setPreviousStatus("RETURNED_TO_APPLICANT");
+        auditResubmit.setNewStatus(ApplicationStatus.PENDING_VERIFICATION.name());
+        verificationHistoryRepository.save(auditResubmit);
+
+        VerificationHistory auditRescore = new VerificationHistory();
+        auditRescore.setApplicationId(savedApp.getId());
+        auditRescore.setOfficerId(actor.getId());
+        auditRescore.setOfficerName("Beneficiary");
+        auditRescore.setOfficerRole("BENEFICIARY");
+        auditRescore.setVerificationLevel("RESUBMISSION");
+        auditRescore.setAction("ELIGIBILITY_SCORED");
+        auditRescore.setRemarks("System recalculated eligibility score: " + totalScore + " / " + maxScore);
+        auditRescore.setActionTimestamp(LocalDateTime.now().plusNanos(1000)); // offset slightly
+        auditRescore.setPreviousStatus(ApplicationStatus.PENDING_VERIFICATION.name());
+        auditRescore.setNewStatus(ApplicationStatus.PENDING_VERIFICATION.name());
+        verificationHistoryRepository.save(auditRescore);
+
+        return savedApp;
     }
 
     // ============================================================
@@ -693,7 +759,12 @@ public class ApplicationService {
                         h.getVerificationLevel(), 
                         h.getAction(), 
                         h.getRemarks(), 
-                        h.getActionTimestamp()))
+                        h.getActionTimestamp(),
+                        h.getMilestoneId(), 
+                        h.getFundReleaseId(), 
+                        h.getAmount(), 
+                        h.getPreviousStatus(), 
+                        h.getNewStatus()))
                 .collect(java.util.stream.Collectors.toList());
     }
 

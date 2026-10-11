@@ -18,6 +18,10 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import com.infosys.subsidy.service.DocumentStorageService;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.multipart.MultipartFile;
+import org.mockito.ArgumentCaptor;
 
 @ExtendWith(MockitoExtension.class)
 public class MilestoneComplianceServiceTest {
@@ -34,6 +38,12 @@ public class MilestoneComplianceServiceTest {
     private ApplicationRepository applicationRepository;
     @Mock
     private BeneficiaryRepository beneficiaryRepository;
+    @Mock
+    private VerificationHistoryRepository verificationHistoryRepository;
+    @Mock
+    private MilestoneComplianceEvidenceRepository evidenceRepository;
+    @Mock
+    private DocumentStorageService documentStorageService;
 
     @InjectMocks
     private MilestoneComplianceService complianceService;
@@ -122,5 +132,62 @@ public class MilestoneComplianceServiceTest {
 
         assertEquals(MilestoneStatus.BLOCKED, docMilestone.getStatus());
         verify(milestoneRepository).save(docMilestone);
+    }
+
+    @Test
+    void testFirstUtilizationEvidenceSubmitted() {
+        DisbursementMilestone mst = new DisbursementMilestone();
+        mst.setId(22L);
+        mst.setStatus(MilestoneStatus.PENDING);
+        mst.setComplianceType(MilestoneComplianceType.UTILIZATION_PROOF);
+        DisbursementPlan plan = new DisbursementPlan();
+        plan.setApplicationId(10L);
+        mst.setPlan(plan);
+        
+        User submitter = new User();
+        submitter.setId(10L);
+        submitter.setEmail("ben@test.com");
+        
+        when(userRepository.findByEmail("ben@test.com")).thenReturn(Optional.of(submitter));
+        when(milestoneRepository.findById(22L)).thenReturn(Optional.of(mst));
+        when(milestoneRepository.save(any(DisbursementMilestone.class))).thenReturn(mst);
+        
+        List<MultipartFile> files = List.of(new MockMultipartFile("f", "test.xml", "text/xml", "a".getBytes()));
+        List<String> types = List.of("INVOICE");
+        
+        complianceService.submitComplianceEvidenceFiles(22L, files, types, "First submission", "ben@test.com");
+        
+        ArgumentCaptor<VerificationHistory> captor = ArgumentCaptor.forClass(VerificationHistory.class);
+        verify(verificationHistoryRepository).save(captor.capture());
+        assertEquals("UTILIZATION_PROOF_SUBMITTED", captor.getValue().getAction());
+    }
+
+    @Test
+    void testCorrectedUtilizationEvidenceResubmitted() {
+        DisbursementMilestone mst = new DisbursementMilestone();
+        mst.setId(22L);
+        mst.setStatus(MilestoneStatus.NON_COMPLIANT);
+        mst.setComplianceType(MilestoneComplianceType.UTILIZATION_PROOF);
+        DisbursementPlan plan = new DisbursementPlan();
+        plan.setApplicationId(10L);
+        mst.setPlan(plan);
+        
+        User submitter = new User();
+        submitter.setId(10L);
+        submitter.setEmail("ben@test.com");
+        
+        when(userRepository.findByEmail("ben@test.com")).thenReturn(Optional.of(submitter));
+        when(milestoneRepository.findById(22L)).thenReturn(Optional.of(mst));
+        when(milestoneRepository.save(any(DisbursementMilestone.class))).thenReturn(mst);
+        
+        List<MultipartFile> files = List.of(new MockMultipartFile("f", "test.xml", "text/xml", "a".getBytes()));
+        List<String> types = List.of("INVOICE");
+        
+        complianceService.submitComplianceEvidenceFiles(22L, files, types, "Resubmission", "ben@test.com");
+        
+        ArgumentCaptor<VerificationHistory> captor = ArgumentCaptor.forClass(VerificationHistory.class);
+        verify(verificationHistoryRepository).save(captor.capture());
+        assertEquals("UTILIZATION_PROOF_RESUBMITTED", captor.getValue().getAction());
+        assertEquals(MilestoneStatus.COMPLIANCE_SUBMITTED.name(), captor.getValue().getNewStatus());
     }
 }

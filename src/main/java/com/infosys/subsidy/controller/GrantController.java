@@ -133,8 +133,9 @@ public class GrantController {
 
     @GetMapping("/applications/{id}/plan")
     @PreAuthorize("hasAnyRole('GRANT_OFFICER', 'ADMIN', 'BENEFICIARY')")
-    public ResponseEntity<PlanResponseDTO> getPlan(@PathVariable Long id) {
-        return ResponseEntity.ok(grantService.getDisbursementPlan(id));
+    public ResponseEntity<PlanResponseDTO> getPlan(@PathVariable Long id, Principal principal) {
+        if (principal == null) return ResponseEntity.status(401).build();
+        return ResponseEntity.ok(grantService.getDisbursementPlan(id, principal.getName()));
     }
 
     @DeleteMapping("/applications/{id}/nuke-plan")
@@ -194,8 +195,9 @@ public class GrantController {
 
     @GetMapping("/milestones/{id}/evidence")
     @PreAuthorize("hasAnyRole('GRANT_OFFICER', 'ADMIN', 'BENEFICIARY')")
-    public ResponseEntity<?> getEvidence(@PathVariable Long id) {
-        return ResponseEntity.ok(complianceService.getEvidenceForMilestone(id));
+    public ResponseEntity<?> getEvidence(@PathVariable Long id, Principal principal) {
+        if (principal == null) return ResponseEntity.status(401).build();
+        return ResponseEntity.ok(complianceService.getEvidenceForMilestone(id, principal.getName()));
     }
     
     @PostMapping("/milestones/{id}/evidence/{evidenceId}/review")
@@ -224,8 +226,9 @@ public class GrantController {
 
     @GetMapping("/evidence/{id}/download")
     @PreAuthorize("hasAnyRole('GRANT_OFFICER', 'ADMIN', 'BENEFICIARY')")
-    public ResponseEntity<org.springframework.core.io.Resource> downloadEvidence(@PathVariable Long id) {
-        com.infosys.subsidy.entity.MilestoneComplianceEvidence evidence = complianceService.getEvidenceById(id);
+    public ResponseEntity<org.springframework.core.io.Resource> downloadEvidence(@PathVariable Long id, Principal principal) {
+        if (principal == null) return ResponseEntity.status(401).build();
+        com.infosys.subsidy.entity.MilestoneComplianceEvidence evidence = complianceService.getEvidenceById(id, principal.getName());
         try {
             java.nio.file.Path file = java.nio.file.Paths.get(evidence.getFilePath());
             org.springframework.core.io.Resource resource = new org.springframework.core.io.UrlResource(file.toUri());
@@ -256,14 +259,9 @@ public class GrantController {
     // ============================================================
     @GetMapping("/milestones/{id}/receipt")
     @PreAuthorize("hasAnyRole('GRANT_OFFICER', 'ADMIN', 'BENEFICIARY')")
-    public ResponseEntity<com.infosys.subsidy.entity.FundRelease> getMilestoneReceipt(@PathVariable Long id) {
-        com.infosys.subsidy.entity.FundRelease receipt = fundReleaseRepository.findAll().stream()
-                .filter(fr -> id.equals(fr.getMilestoneId()) && 
-                       ("RELEASED".equals(fr.getStatus()) || "DISBURSED".equals(fr.getStatus()) || "SUCCESS".equals(fr.getStatus())))
-                .findFirst()
-                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
-                        org.springframework.http.HttpStatus.NOT_FOUND, "No successful receipt found for this milestone."));
-        return ResponseEntity.ok(receipt);
+    public ResponseEntity<com.infosys.subsidy.entity.FundRelease> getMilestoneReceipt(@PathVariable Long id, Principal principal) {
+        if (principal == null) return ResponseEntity.status(401).build();
+        return ResponseEntity.ok(grantService.getMilestoneReceipt(id, principal.getName()));
     }
 
     @PostMapping("/milestones/{id}/release")
@@ -276,7 +274,8 @@ public class GrantController {
 
     @GetMapping("/applications/{id}/releases")
     @PreAuthorize("hasAnyRole('GRANT_OFFICER', 'ADMIN', 'BENEFICIARY')")
-    public ResponseEntity<List<FundRelease>> getApplicationReleases(@PathVariable Long id) {
-        return ResponseEntity.ok(fundReleaseRepository.findByApplicationIdOrderByReleasedAtAsc(id));
+    public ResponseEntity<List<FundRelease>> getApplicationReleases(@PathVariable Long id, Principal principal) {
+        if (principal == null) return ResponseEntity.status(401).build();
+        return ResponseEntity.ok(grantService.getApplicationReleases(id, principal.getName()));
     }
 }

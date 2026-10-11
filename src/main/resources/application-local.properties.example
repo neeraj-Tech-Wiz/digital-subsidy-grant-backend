@@ -12,3 +12,11 @@ server.port=8080
 
 jwt.secret=YOUR_BASE64_ENCODED_SECRET_HERE
 jwt.expiration=86400000
+
+# Spring Mail Configuration (Provide SMTP keys here during local testing if needed)
+BREVO_SMTP_HOST=smtp-relay.brevo.com
+BREVO_SMTP_PORT=587
+BREVO_SMTP_USERNAME=
+BREVO_SMTP_KEY=
+BREVO_SENDER_EMAIL=noreply@digitalsubsidy.local
+BREVO_SENDER_NAME=Digital Subsidy Local

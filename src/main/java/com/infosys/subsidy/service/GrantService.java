@@ -31,6 +31,7 @@ public class GrantService {
     private final DisbursementMilestoneRepository milestoneRepository;
     private final FundReleaseRepository fundReleaseRepository;
     private final MilestoneComplianceService complianceService;
+    private final VerificationHistoryRepository verificationHistoryRepository;
 
     public GrantService(GrantDisbursementRepository grantDisbursementRepository,
                         ApplicationRepository applicationRepository,
@@ -40,7 +41,8 @@ public class GrantService {
                         DisbursementPlanRepository planRepository,
                         DisbursementMilestoneRepository milestoneRepository,
                         FundReleaseRepository fundReleaseRepository,
-                        MilestoneComplianceService complianceService) {
+                        MilestoneComplianceService complianceService,
+                        VerificationHistoryRepository verificationHistoryRepository) {
         this.grantDisbursementRepository = grantDisbursementRepository;
         this.applicationRepository = applicationRepository;
         this.schemeRepository = schemeRepository;
@@ -50,6 +52,7 @@ public class GrantService {
         this.milestoneRepository = milestoneRepository;
         this.fundReleaseRepository = fundReleaseRepository;
         this.complianceService = complianceService;
+        this.verificationHistoryRepository = verificationHistoryRepository;
     }
 
     // LEGACY ENDPOINT METHOD
@@ -206,6 +209,18 @@ public class GrantService {
             }
         }
 
+        VerificationHistory audit = new VerificationHistory();
+        audit.setApplicationId(applicationId);
+        audit.setOfficerId(officer.getId());
+        audit.setOfficerName(officer.getName());
+        audit.setOfficerRole(officer.getRole().name());
+        audit.setVerificationLevel("FINANCE_PLANNING");
+        audit.setAction("DISBURSEMENT_PLAN_CREATED");
+        audit.setRemarks("Created 3-stage disbursement plan.");
+        audit.setAmount(savedPlan.getTotalAmount());
+        audit.setActionTimestamp(LocalDateTime.now());
+        verificationHistoryRepository.save(audit);
+
         return savedPlan;
     }
 
@@ -223,11 +238,22 @@ public class GrantService {
 
     @Transactional
     public FundRelease releaseMilestone(Long applicationId, Long milestoneId, String officerEmail) {
-        User officer = userRepository.findByEmail(officerEmail)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Officer not found"));
+        User officer;
+        boolean isSystem = "SYSTEM".equals(officerEmail);
+        
+        if (isSystem) {
+            officer = new User();
+            officer.setId(0L);
+            officer.setEmail("SYSTEM");
+            officer.setName("SYSTEM / SCHEDULER");
+            officer.setRole(UserRole.ADMIN);
+        } else {
+            officer = userRepository.findByEmail(officerEmail)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Officer not found"));
 
-        if (officer.getRole() != UserRole.GRANT_OFFICER && officer.getRole() != UserRole.ADMIN) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only Grant Officers can release funds.");
+            if (officer.getRole() != UserRole.GRANT_OFFICER && officer.getRole() != UserRole.ADMIN) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only Grant Officers can release funds.");
+            }
         }
 
         Application application = applicationRepository.findById(applicationId)
@@ -314,6 +340,21 @@ public class GrantService {
             application.setStatus(ApplicationStatus.PARTIALLY_DISBURSED);
         }
         applicationRepository.save(application);
+
+        VerificationHistory audit = new VerificationHistory();
+        audit.setApplicationId(applicationId);
+        audit.setOfficerId(officer.getId());
+        audit.setOfficerName(officer.getName());
+        audit.setOfficerRole(isSystem ? "SYSTEM_SCHEDULER" : officer.getRole().name());
+        audit.setVerificationLevel("FINANCE_DISBURSEMENT");
+        audit.setAction("MILESTONE_RELEASED");
+        audit.setRemarks("Milestone fund released. Transaction: " + savedRelease.getTransactionReference());
+        audit.setActionTimestamp(LocalDateTime.now());
+        audit.setMilestoneId(milestoneId);
+        audit.setFundReleaseId(savedRelease.getId());
+        audit.setAmount(savedRelease.getAmount());
+        audit.setNewStatus(milestone.getStatus().name());
+        verificationHistoryRepository.save(audit);
 
         return savedRelease;
     }
@@ -470,11 +511,15 @@ public class GrantService {
     }
 
     @Transactional(readOnly = true)
-    public PlanResponseDTO getDisbursementPlan(Long applicationId) {
-        DisbursementPlan plan = planRepository.findByApplicationId(applicationId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Plan not found"));
+    public PlanResponseDTO getDisbursementPlan(Long applicationId, String authenticatedEmail) {
         Application application = applicationRepository.findById(applicationId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Application not found"));
+                
+        verifyApplicationOwnership(application, authenticatedEmail);
+
+        DisbursementPlan plan = planRepository.findByApplicationId(applicationId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Plan not found"));
+
 
         List<FundRelease> releases = fundReleaseRepository.findByApplicationIdOrderByReleasedAtAsc(applicationId);
         BigDecimal releasedTotal = releases.stream().map(FundRelease::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -499,7 +544,7 @@ public class GrantService {
             // Strong fallback check to ensure NON_COMPLIANT state never gets masked
             MilestoneStatus finalStatus = m.getStatus();
             if (m.getComplianceType() == com.infosys.subsidy.enums.MilestoneComplianceType.UTILIZATION_PROOF) {
-                List<com.infosys.subsidy.entity.MilestoneComplianceEvidence> allEv = complianceService.getEvidenceForMilestone(m.getId());
+                List<com.infosys.subsidy.entity.MilestoneComplianceEvidence> allEv = complianceService.getEvidenceForMilestone(m.getId(), authenticatedEmail);
                 boolean hasRejected = allEv.stream().anyMatch(ev -> "REJECTED".equalsIgnoreCase(ev.getStatus()));
                 boolean hasPendingOrVerified = allEv.stream().anyMatch(ev -> 
                     "SUBMITTED".equalsIgnoreCase(ev.getStatus()) || 
@@ -652,5 +697,52 @@ public class GrantService {
         dto.setSchemeName(scheme.getSchemeName());
         dto.setSchemeCode(scheme.getSchemeCode());
         return dto;
+    }
+
+    @Transactional(readOnly = true)
+    public FundRelease getMilestoneReceipt(Long milestoneId, String authenticatedEmail) {
+        DisbursementMilestone milestone = milestoneRepository.findById(milestoneId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Milestone not found"));
+        Application application = applicationRepository.findById(milestone.getPlan().getApplicationId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Application not found"));
+                
+        verifyApplicationOwnership(application, authenticatedEmail);
+
+        return fundReleaseRepository.findAll().stream()
+                .filter(fr -> milestoneId.equals(fr.getMilestoneId()) && 
+                       ("RELEASED".equals(fr.getStatus()) || "DISBURSED".equals(fr.getStatus()) || "SUCCESS".equals(fr.getStatus())))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No successful receipt found for this milestone."));
+    }
+
+    @Transactional(readOnly = true)
+    public List<FundRelease> getApplicationReleases(Long applicationId, String authenticatedEmail) {
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Application not found"));
+                
+        verifyApplicationOwnership(application, authenticatedEmail);
+
+        return fundReleaseRepository.findByApplicationIdOrderByReleasedAtAsc(applicationId);
+    }
+
+    // ============================================================
+    // HELPER — Verify application ownership.
+    // ============================================================
+    private void verifyApplicationOwnership(Application application, String authenticatedEmail) {
+        User user = userRepository.findByEmail(authenticatedEmail)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
+                        
+        if (user.getRole() == UserRole.BENEFICIARY) {
+            Beneficiary beneficiary = beneficiaryRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.FORBIDDEN, "Beneficiary profile not found."));
+                        
+            if (!beneficiary.getId().equals(application.getBeneficiaryId())) {
+                throw new ResponseStatusException(
+                        HttpStatus.FORBIDDEN,
+                        "You are not authorized to access this application.");
+            }
+        }
     }
 }

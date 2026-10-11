@@ -6,6 +6,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -146,6 +148,24 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
                 .body(error);
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<Map<String, Object>> handleResponseStatusException(ResponseStatusException exception) {
+        Map<String, Object> error = new HashMap<>();
+        error.put("error", exception.getReason());
+        error.put("message", exception.getMessage());
+        error.put("timestamp", LocalDateTime.now().toString());
+        return ResponseEntity.status(exception.getStatusCode()).body(error);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handleAccessDeniedException(AccessDeniedException exception) {
+        Map<String, Object> error = new HashMap<>();
+        error.put("error", "Access Denied");
+        error.put("message", exception.getMessage());
+        error.put("timestamp", LocalDateTime.now().toString());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
     }
 
     @ExceptionHandler(RuntimeException.class)

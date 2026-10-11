@@ -12,15 +12,19 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.infosys.subsidy.enums.AuditEventType;
+
 @Service
 public class AdminOfficerService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuditService auditService;
 
-    public AdminOfficerService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public AdminOfficerService(UserRepository userRepository, PasswordEncoder passwordEncoder, AuditService auditService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -41,7 +45,16 @@ public class AdminOfficerService {
         officer.setRole(request.getRole());
         officer.setActive(true);
 
-        return new OfficerResponse(userRepository.save(officer));
+        User savedOfficer = userRepository.save(officer);
+        
+        auditService.logAdminAction(
+            AuditEventType.OFFICER_CREATED, 
+            "OFFICER", 
+            String.valueOf(savedOfficer.getId()), 
+            "Created officer account for " + email
+        );
+        
+        return new OfficerResponse(savedOfficer);
     }
 
     public List<OfficerResponse> getAllOfficers() {
@@ -68,7 +81,16 @@ public class AdminOfficerService {
             throw new RuntimeException("User found is not an Officer");
         }
         user.setActive(true);
-        return new OfficerResponse(userRepository.save(user));
+        User savedUser = userRepository.save(user);
+        
+        auditService.logAdminAction(
+            AuditEventType.OFFICER_ACTIVATED, 
+            "OFFICER", 
+            String.valueOf(savedUser.getId()), 
+            "Activated officer account"
+        );
+        
+        return new OfficerResponse(savedUser);
     }
 
     @Transactional
@@ -79,6 +101,15 @@ public class AdminOfficerService {
             throw new RuntimeException("User found is not an Officer");
         }
         user.setActive(false);
-        return new OfficerResponse(userRepository.save(user));
+        User savedUser = userRepository.save(user);
+
+        auditService.logAdminAction(
+            AuditEventType.OFFICER_DEACTIVATED, 
+            "OFFICER", 
+            String.valueOf(savedUser.getId()), 
+            "Deactivated officer account"
+        );
+        
+        return new OfficerResponse(savedUser);
     }
 }

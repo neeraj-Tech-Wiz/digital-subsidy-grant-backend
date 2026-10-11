@@ -242,7 +242,7 @@ public class VerificationService {
 
         // Load Verification History
         List<com.infosys.subsidy.dto.VerificationHistoryDTO> historyDtos = verificationHistoryRepository.findByApplicationIdOrderByActionTimestampAsc(application.getId())
-            .stream().map(h -> new com.infosys.subsidy.dto.VerificationHistoryDTO(h.getOfficerName(), h.getOfficerRole(), h.getVerificationLevel(), h.getAction(), h.getRemarks(), h.getActionTimestamp()))
+            .stream().map(h -> new com.infosys.subsidy.dto.VerificationHistoryDTO(h.getOfficerName(), h.getOfficerRole(), h.getVerificationLevel(), h.getAction(), h.getRemarks(), h.getActionTimestamp(), h.getMilestoneId(), h.getFundReleaseId(), h.getAmount(), h.getPreviousStatus(), h.getNewStatus()))
             .collect(Collectors.toList());
         dto.setVerificationHistory(historyDtos);
         

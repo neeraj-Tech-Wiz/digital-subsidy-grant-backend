@@ -21,6 +21,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import com.infosys.subsidy.enums.AuditEventType;
+
 /**
  * Implementation of SchemeService providing complete business logic, validations,
  * exception handling, and relationship management between Scheme and EligibilityCriteria.
@@ -32,11 +34,13 @@ public class SchemeServiceImpl implements SchemeService {
     private final SchemeRepository schemeRepository;
     private final EligibilityCriteriaRepository criteriaRepository;
     private final com.infosys.subsidy.repository.SchemeRequiredDocumentRepository documentRepository;
+    private final AuditService auditService;
 
-    public SchemeServiceImpl(SchemeRepository schemeRepository, EligibilityCriteriaRepository criteriaRepository, com.infosys.subsidy.repository.SchemeRequiredDocumentRepository documentRepository) {
+    public SchemeServiceImpl(SchemeRepository schemeRepository, EligibilityCriteriaRepository criteriaRepository, com.infosys.subsidy.repository.SchemeRequiredDocumentRepository documentRepository, AuditService auditService) {
         this.schemeRepository = schemeRepository;
         this.criteriaRepository = criteriaRepository;
         this.documentRepository = documentRepository;
+        this.auditService = auditService;
     }
 
     // ==================== SCHEME OPERATIONS ====================
@@ -84,7 +88,14 @@ public class SchemeServiceImpl implements SchemeService {
             throw new DuplicateSchemeException("A scheme with name '" + scheme.getSchemeName() + "' already exists.");
         }
 
-        return schemeRepository.save(scheme);
+        Scheme saved = schemeRepository.save(scheme);
+        auditService.logAdminAction(
+            AuditEventType.SCHEME_CREATED, 
+            "SCHEME", 
+            String.valueOf(saved.getId()), 
+            "Created new scheme: " + saved.getSchemeName()
+        );
+        return saved;
     }
 
     @Override
@@ -141,7 +152,15 @@ public class SchemeServiceImpl implements SchemeService {
         }
 
         validateSchemeFields(existing, false);
-        return schemeRepository.save(existing);
+        Scheme updated = schemeRepository.save(existing);
+        
+        auditService.logAdminAction(
+            AuditEventType.SCHEME_UPDATED, 
+            "SCHEME", 
+            String.valueOf(updated.getId()), 
+            "Updated scheme details"
+        );
+        return updated;
     }
 
     @Override
@@ -200,7 +219,15 @@ public class SchemeServiceImpl implements SchemeService {
         }
 
         scheme.setStatus(newStatus);
-        return schemeRepository.save(scheme);
+        Scheme updated = schemeRepository.save(scheme);
+        
+        auditService.logAdminAction(
+            AuditEventType.SCHEME_STATUS_CHANGED, 
+            "SCHEME", 
+            String.valueOf(updated.getId()), 
+            "Changed scheme status to " + newStatus.name()
+        );
+        return updated;
     }
 
         @Override
@@ -213,6 +240,13 @@ public class SchemeServiceImpl implements SchemeService {
                     );
 
             schemeRepository.delete(scheme);
+            
+            auditService.logAdminAction(
+                AuditEventType.SCHEME_DELETED, 
+                "SCHEME", 
+                String.valueOf(schemeId), 
+                "Deleted scheme completely"
+            );
 
             return true;
         }
