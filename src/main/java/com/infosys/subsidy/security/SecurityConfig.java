@@ -43,8 +43,8 @@ public class SecurityConfig {
 
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(List.of(
-                "http://localhost:5173"
+        configuration.setAllowedOriginPatterns(List.of(
+                "*"
         ));
 
         configuration.setAllowedMethods(List.of(
@@ -63,6 +63,7 @@ public class SecurityConfig {
         ));
 
         configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
