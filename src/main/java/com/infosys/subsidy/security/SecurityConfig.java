@@ -121,6 +121,10 @@ public class SecurityConfig {
                                 HttpMethod.GET,
                                 "/api/health"
                         ).permitAll()
+                        .requestMatchers(
+                                HttpMethod.HEAD,
+                                "/api/health"
+                        ).permitAll()
 
                         // =========================
                         // PUBLIC AUTH APIs

@@ -3,6 +3,7 @@ package com.infosys.subsidy.controller;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Collections;
@@ -15,5 +16,10 @@ public class HealthController {
     @GetMapping
     public ResponseEntity<Map<String, String>> checkHealth() {
         return ResponseEntity.ok(Collections.singletonMap("status", "UP"));
+    }
+
+    @RequestMapping(method = RequestMethod.HEAD)
+    public ResponseEntity<Void> checkHealthHead() {
+        return ResponseEntity.ok().build();
     }
 }
