@@ -47,12 +47,29 @@ public class BrevoEmailService {
             String senderEmail,
             String senderName,
             RestTemplate restTemplate) {
-        this.apiKey = apiKey != null ? apiKey.trim() : null;
+        this.apiKey = cleanApiKey(apiKey);
         this.senderEmail = senderEmail != null ? senderEmail.trim() : null;
         this.senderName = (senderName != null && !senderName.trim().isEmpty())
                 ? senderName.trim()
                 : "Digital Subsidy & Grant Platform";
         this.restTemplate = restTemplate != null ? restTemplate : createDefaultRestTemplate(5000, 10000);
+    }
+
+    private static String cleanApiKey(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String cleaned = raw.trim();
+        if ((cleaned.startsWith("\"") && cleaned.endsWith("\"")) || (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
+            cleaned = cleaned.substring(1, cleaned.length() - 1).trim();
+        }
+        if (cleaned.startsWith("api-key:") || cleaned.startsWith("api-key=")) {
+            cleaned = cleaned.substring(8).trim();
+        }
+        if (cleaned.startsWith("Bearer ")) {
+            cleaned = cleaned.substring(7).trim();
+        }
+        return cleaned;
     }
 
     private static RestTemplate createDefaultRestTemplate(int connectTimeoutMs, int readTimeoutMs) {
@@ -127,11 +144,15 @@ public class BrevoEmailService {
 
     private void validateConfiguration() {
         if (apiKey == null || apiKey.isEmpty()) {
-            logger.error("Brevo API key is not configured.");
+            logger.error("Brevo API key is not configured. Please set the BREVO_API_KEY environment variable.");
             throw new IllegalStateException("Brevo API key is not configured.");
         }
+        if (apiKey.startsWith("xsmtpsib-")) {
+            logger.error("Invalid Brevo key detected: BREVO_API_KEY is configured with an SMTP key ('xsmtpsib-...'). Brevo HTTP REST API requires a v3 API key ('xkeysib-...'). Generate one under Brevo Dashboard -> SMTP & API -> API Keys.");
+            throw new IllegalStateException("Brevo API key is configured with an SMTP key (starts with 'xsmtpsib-') instead of a REST API key (starts with 'xkeysib-'). Please generate an API Key in Brevo under Account > SMTP & API > API Keys.");
+        }
         if (senderEmail == null || senderEmail.isEmpty()) {
-            logger.error("Brevo sender email is not configured.");
+            logger.error("Brevo sender email is not configured. Please set the BREVO_SENDER_EMAIL environment variable.");
             throw new IllegalStateException("Brevo sender email is not configured.");
         }
     }
@@ -201,8 +222,8 @@ public class BrevoEmailService {
     }
 
     private String sanitizeErrorMessage(String raw) {
-        if (raw == null) {
-            return "No detail provided";
+        if (raw == null || raw.trim().isEmpty()) {
+            return "No detail provided (empty response body)";
         }
         // Redact any patterns resembling API keys, auth tokens or secrets
         String sanitized = raw.replaceAll("(?i)(api[_-]?key|password|secret|bearer)\\s*[:=]\\s*['\"]?[^'\"\\s]+", "$1=[REDACTED]");

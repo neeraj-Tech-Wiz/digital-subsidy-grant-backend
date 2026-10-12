@@ -200,4 +200,43 @@ public class BrevoEmailServiceTest {
             assertNotNull(threeArgService);
         });
     }
+
+    @Test
+    void testSendEmail_SmtpKey_ThrowsIllegalStateException() {
+        BrevoEmailService serviceWithSmtpKey = new BrevoEmailService(
+                "xsmtpsib-8c6daf2f848b971d4100e77f0d73f90928cae804fcd5a11d7640aaab72ca2144-dummy",
+                SENDER_EMAIL,
+                SENDER_NAME,
+                restTemplate
+        );
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> serviceWithSmtpKey.sendOtpEmail("user@example.com", "123456"));
+
+        assertTrue(ex.getMessage().contains("SMTP key"));
+        assertTrue(ex.getMessage().contains("xsmtpsib-"));
+        verifyNoInteractions(restTemplate);
+    }
+
+    @Test
+    void testSendEmail_QuotedApiKey_CleansQuotesAndSends() {
+        BrevoEmailService serviceWithQuotedKey = new BrevoEmailService(
+                "\"xkeysib-cleaned-key\"",
+                SENDER_EMAIL,
+                SENDER_NAME,
+                restTemplate
+        );
+
+        ResponseEntity<String> response = new ResponseEntity<>("{\"messageId\":\"<123@brevo>\"}", HttpStatus.CREATED);
+        when(restTemplate.postForEntity(anyString(), any(HttpEntity.class), eq(String.class)))
+                .thenReturn(response);
+
+        assertDoesNotThrow(() -> serviceWithQuotedKey.sendOtpEmail("user@example.com", "123456"));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<HttpEntity<Map<String, Object>>> captor = ArgumentCaptor.forClass(HttpEntity.class);
+        verify(restTemplate).postForEntity(anyString(), captor.capture(), eq(String.class));
+
+        assertEquals("xkeysib-cleaned-key", captor.getValue().getHeaders().getFirst("api-key"));
+    }
 }
