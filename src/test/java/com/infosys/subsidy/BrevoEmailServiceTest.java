@@ -184,4 +184,20 @@ public class BrevoEmailServiceTest {
 
         assertTrue(ex.getMessage().contains("Brevo API returned error status"));
     }
+
+    @Test
+    void testNoArgConstructorInstantiation() {
+        assertDoesNotThrow(() -> {
+            BrevoEmailService defaultService = new BrevoEmailService();
+            assertNotNull(defaultService);
+        });
+    }
+
+    @Test
+    void testThreeArgConstructorInstantiation() {
+        assertDoesNotThrow(() -> {
+            BrevoEmailService threeArgService = new BrevoEmailService("dummy-key", "test@test.com", "Test");
+            assertNotNull(threeArgService);
+        });
+    }
 }

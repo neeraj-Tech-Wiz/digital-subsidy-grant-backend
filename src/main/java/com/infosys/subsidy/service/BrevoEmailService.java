@@ -2,6 +2,7 @@ package com.infosys.subsidy.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -29,9 +30,14 @@ public class BrevoEmailService {
     private final String senderName;
     private final RestTemplate restTemplate;
 
+    public BrevoEmailService() {
+        this(null, null, "Digital Subsidy & Grant Platform");
+    }
+
+    @Autowired
     public BrevoEmailService(
-            @Value("${brevo.api.key}") String apiKey,
-            @Value("${brevo.sender.email}") String senderEmail,
+            @Value("${brevo.api.key:}") String apiKey,
+            @Value("${brevo.sender.email:}") String senderEmail,
             @Value("${brevo.sender.name:Digital Subsidy & Grant Platform}") String senderName) {
         this(apiKey, senderEmail, senderName, createDefaultRestTemplate(5000, 10000));
     }
