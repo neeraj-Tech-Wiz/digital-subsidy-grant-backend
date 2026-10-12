@@ -115,6 +115,14 @@ public class SecurityConfig {
                         ).permitAll()
 
                         // =========================
+                        // PUBLIC HEALTH CHECK API
+                        // =========================
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/health"
+                        ).permitAll()
+
+                        // =========================
                         // PUBLIC AUTH APIs
                         // =========================
                         .requestMatchers(
