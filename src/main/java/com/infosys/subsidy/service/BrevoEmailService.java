@@ -59,17 +59,17 @@ public class BrevoEmailService {
         if (raw == null) {
             return null;
         }
-        String cleaned = raw.trim();
+        String cleaned = raw.replaceAll("\\s+", "");
         if ((cleaned.startsWith("\"") && cleaned.endsWith("\"")) || (cleaned.startsWith("'") && cleaned.endsWith("'"))) {
             cleaned = cleaned.substring(1, cleaned.length() - 1).trim();
         }
         if (cleaned.startsWith("api-key:") || cleaned.startsWith("api-key=")) {
             cleaned = cleaned.substring(8).trim();
         }
-        if (cleaned.startsWith("Bearer ")) {
-            cleaned = cleaned.substring(7).trim();
+        if (cleaned.startsWith("Bearer")) {
+            cleaned = cleaned.substring(6).trim();
         }
-        return cleaned;
+        return cleaned.replaceAll("\\s+", "");
     }
 
     private static RestTemplate createDefaultRestTemplate(int connectTimeoutMs, int readTimeoutMs) {
