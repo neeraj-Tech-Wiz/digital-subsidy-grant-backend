@@ -13,6 +13,7 @@ import com.infosys.subsidy.exception.SchemeNotFoundException;
 import com.infosys.subsidy.exception.ValidationException;
 import com.infosys.subsidy.repository.EligibilityCriteriaRepository;
 import com.infosys.subsidy.repository.SchemeRepository;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,6 +47,7 @@ public class SchemeServiceImpl implements SchemeService {
     // ==================== SCHEME OPERATIONS ====================
 
     @Override
+    @CacheEvict(value = "dashboardStats", allEntries = true)
     public Scheme createScheme(SchemeRequest request) {
         if (request == null) {
             throw new ValidationException("Scheme request cannot be null");
@@ -74,6 +76,7 @@ public class SchemeServiceImpl implements SchemeService {
     }
 
     @Override
+    @CacheEvict(value = "dashboardStats", allEntries = true)
     public Scheme createScheme(Scheme scheme) {
         if (scheme == null) {
             throw new ValidationException("Scheme data cannot be null");
@@ -99,6 +102,7 @@ public class SchemeServiceImpl implements SchemeService {
     }
 
     @Override
+    @CacheEvict(value = "dashboardStats", allEntries = true)
     public Scheme updateScheme(Long schemeId, SchemeRequest updates) {
         if (schemeId == null) {
             throw new ValidationException("Scheme ID cannot be null");
@@ -204,6 +208,7 @@ public class SchemeServiceImpl implements SchemeService {
     }
 
     @Override
+    @CacheEvict(value = "dashboardStats", allEntries = true)
     public Scheme changeSchemeStatus(Long schemeId, SchemeStatus newStatus) {
         if (newStatus == null) {
             throw new ValidationException("New status cannot be null");
@@ -232,6 +237,7 @@ public class SchemeServiceImpl implements SchemeService {
 
         @Override
         @Transactional
+        @CacheEvict(value = "dashboardStats", allEntries = true)
         public boolean deleteScheme(Long schemeId) {
 
             Scheme scheme = schemeRepository.findById(schemeId)

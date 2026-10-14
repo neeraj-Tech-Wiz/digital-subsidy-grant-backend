@@ -6,6 +6,7 @@ import com.infosys.subsidy.enums.ApplicationStatus;
 import com.infosys.subsidy.enums.VerificationLevel;
 import com.infosys.subsidy.repository.ApplicationRepository;
 
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -75,6 +76,7 @@ public class VerificationService {
     // =====================================================
 
     @Transactional
+    @CacheEvict(value = "dashboardStats", allEntries = true)
     public Application verifyApplication(
             Long applicationId,
             VerificationRequest request) {
@@ -339,6 +341,7 @@ public class VerificationService {
     // =====================================================
     
     @Transactional
+    @CacheEvict(value = "dashboardStats", allEntries = true)
     public Application verifyEligibility(Long applicationId, com.infosys.subsidy.dto.EligibilityVerificationRequest request) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User officer = userRepository.findByEmail(email).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
@@ -396,6 +399,7 @@ public class VerificationService {
     // =====================================================
 
     @Transactional
+    @CacheEvict(value = "dashboardStats", allEntries = true)
     public Application returnToApplicant(Long applicationId, VerificationRequest request) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User officer = userRepository.findByEmail(email)

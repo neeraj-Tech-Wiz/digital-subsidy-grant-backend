@@ -4,6 +4,7 @@ import com.infosys.subsidy.dto.*;
 import com.infosys.subsidy.entity.*;
 import com.infosys.subsidy.enums.*;
 import com.infosys.subsidy.repository.*;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,6 +58,7 @@ public class GrantService {
 
     // LEGACY ENDPOINT METHOD
     @Transactional
+    @CacheEvict(value = "dashboardStats", allEntries = true)
     public GrantDisbursement disburseGrant(Long applicationId, String officerEmail) {
         User officer = userRepository.findByEmail(officerEmail)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Officer not found"));
@@ -106,6 +108,7 @@ public class GrantService {
     
     // NEW STAGED DISBURSEMENT LOGIC
     @Transactional
+    @CacheEvict(value = "dashboardStats", allEntries = true)
     public DisbursementPlan createDisbursementPlan(Long applicationId, PlanRequestDTO request, String officerEmail) {
         User officer = userRepository.findByEmail(officerEmail)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Officer not found"));
@@ -237,6 +240,7 @@ public class GrantService {
     }
 
     @Transactional
+    @CacheEvict(value = "dashboardStats", allEntries = true)
     public FundRelease releaseMilestone(Long applicationId, Long milestoneId, String officerEmail) {
         User officer;
         boolean isSystem = "SYSTEM".equals(officerEmail);

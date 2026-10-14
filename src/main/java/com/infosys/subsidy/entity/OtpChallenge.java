@@ -4,16 +4,17 @@ import com.infosys.subsidy.enums.OtpPurpose;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "otp_challenge")
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
 public class OtpChallenge {
+
+    public OtpChallenge() {
+        super();
+    }
 
     @Id
     @Column(name = "id", updatable = false, nullable = false)

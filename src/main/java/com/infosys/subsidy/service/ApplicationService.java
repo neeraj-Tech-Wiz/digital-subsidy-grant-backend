@@ -19,6 +19,7 @@ import com.infosys.subsidy.repository.UserRepository;
 import com.infosys.subsidy.repository.VerificationHistoryRepository;
 import com.infosys.subsidy.repository.SchemeRepository;
 
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -128,6 +129,7 @@ public class ApplicationService {
     // ============================================================
 
     @Transactional
+    @CacheEvict(value = "dashboardStats", allEntries = true)
     public Application applyForScheme(
             Long schemeId,
             ApplicationRequest request,
@@ -347,6 +349,7 @@ public class ApplicationService {
     // ============================================================
 
     @Transactional
+    @CacheEvict(value = "dashboardStats", allEntries = true)
     public Application submitApplicationDocuments(
             Long applicationId,
             String authenticatedEmail) {
@@ -608,6 +611,7 @@ public class ApplicationService {
     // ============================================================
 
     @Transactional
+    @CacheEvict(value = "dashboardStats", allEntries = true)
     public Application resubmitApplication(
             Long applicationId,
             ApplicationRequest request,

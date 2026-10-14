@@ -12,6 +12,7 @@ import com.infosys.subsidy.repository.ApplicationDocumentRepository;
 import com.infosys.subsidy.repository.DisbursementMilestoneRepository;
 import com.infosys.subsidy.repository.SchemeRequiredDocumentRepository;
 import com.infosys.subsidy.repository.UserRepository;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -121,6 +122,7 @@ public class MilestoneComplianceService {
     }
 
     @Transactional
+    @CacheEvict(value = "dashboardStats", allEntries = true)
     public DisbursementMilestone submitComplianceEvidenceFiles(Long milestoneId, List<MultipartFile> files, List<String> evidenceTypes, String remarks, String submitterEmail) {
         User submitter = userRepository.findByEmail(submitterEmail)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
@@ -211,6 +213,7 @@ public class MilestoneComplianceService {
     }
 
     @Transactional
+    @CacheEvict(value = "dashboardStats", allEntries = true)
     public DisbursementMilestone verifyCompliance(Long milestoneId, boolean approved, String remarks, String verifierEmail) {
         User verifier = userRepository.findByEmail(verifierEmail)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
